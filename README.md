@@ -513,6 +513,11 @@ ghci> sin (0 + pi)
 ```s
 # Используя оператор $, перепишите выражение logBase 4 (min 20 (9 + 7)) без скобок
 logBase 4 $ min 20 $ 9 + 7
+
+ghci> logBase 4 (min 20 (9 + 7))
+2.0
+ghci> logBase 4 $ min 20 $ 9 + 7
+2.0
 ```
 test
 
@@ -520,7 +525,263 @@ test
 
 https://stepik.org/lesson/8412/step/1?next=&unit=1551
 
+#### 1.4.2 вывод типов
+
+Строгая статическая типизация: нет неявных приведений типов, проверка типов при компиляции (не в рантайме).
+
+```s
+ghci> :type 'c'
+'c' :: Char
+
+ghci> :t '\n'
+'\n' :: Char
+
+ghci> :t True
+True :: Bool
+```
+repl.
+
+#### 1.4.3 Num Int Integer Float Double
+
+Класс типов `Num`
+```s
+ghci> :t 3
+3 :: Num a => a
+# выражение а "с контекстом-ограничением `Num a =>`"
+# а должно быть представителем класса (типа?) Num
+
+ghci> :t 3.5
+3.5 :: Fractional a => a
+
+ghci> let x = 3 :: Int
+ghci> :t x
+x :: Int
+
+ghci> let y = 3 :: Double
+ghci> y
+3.0
+ghci> :t y
+y :: Double
+
+# полиморфные литералы
+ghci> let z = y + 17
+ghci> z
+20.0
+ghci> :t z
+z :: Double
+
+# произвольный размер целого числа
+ghci> let w = 1234567890987654321 :: Integer
+ghci> w
+1234567890987654321
+ghci> :t w
+w :: Integer
+```
+repl.
+
+#### 1.4.5 тип функции (стрелка в определении ассоц. вправо)
+
+```s
+# функция одного аргумента
+ghci> not False
+True
+ghci> :t not
+not :: Bool -> Bool # bool to bool
+
+# функция двух аргументов (оператор)
+ghci> (&&) True False
+False
+ghci> :t (&&)
+(&&) :: Bool -> Bool -> Bool # каррирование, оператор "стрелка" ассоциируется вправо
+# (&&) :: Bool -> (Bool -> Bool) # берет бул и возвращает функцию bool -> bool
+# количество срелок = количество аргументов
+```
+repl
+
+```s
+discount :: Double -> Double -> Double -> Double
+discount limit proc sum = if sum >= limit then sum * (100 - proc) / 100 else sum
+# Запишите тип функции standardDiscount, определенной как частичное применение функции discount
+standardDiscount :: Double -> Double
+standardDiscount = discount 1000 5 
+```
+test
+
+#### 1.4.7 import module
+
+Поиск нужной функции https://hoogle.haskell.org/?hoogle=isDigit&scope=set%3Ahaskell-platform
+
+```s
+module Demo where
+import Data.Char
+ghci> test = isDigit '7'
+ghci> test
+True
+```
+repl
+
+```s
+# https://hoogle.haskell.org/?hoogle=Char%20-%3E%20Char&scope=set%3Ahaskell-platform
+toLower :: Char -> Char
+base Data.Char GHC.Unicode
+Convert a letter to the corresponding lower-case letter, if any. Any other character is returned unchanged. 
+
+# Реализуйте функцию twoDigits2Int, 
+# которая принимает два символа и возвращает число, составленное из этих символов, если оба символа числовые, и 100 в противном случае. 
+# (Первый символ рассматривается как количество десятков, второй — единиц.)
+GHCi> twoDigits2Int '4' '2'
+42
+
+# test.hs
+import Data.Char
+twoDigits2Int :: Char -> Char -> Int
+twoDigits2Int x y = if isDigit x && isDigit y then digitToInt x * 10 + digitToInt y else 100
+```
+test
+
+#### 1.4.10 tuple
+
+Пространства имен типов и выражений не пересекаются (но типы с большой буквы а выражения с маленькой).
+
+Кортеж: набор элементов, длина постоянна, тип элементов любой.
+Единичного кортежа не существует.
+Пустой кортеж существует (К: консистентность).
+```s
+ghci> (2, True)
+(2,True)
+
+ghci> :t (2, True)
+(2, True) :: Num a => (a, Bool) # при условии, что а это число
+# тип тупла устроен также как значения, как тупл.
+
+# для пары есть удобные экстракторы
+ghci> fst (2, True)
+2
+ghci> snd (2, True)
+True
+
+ghci> :i fst
+fst :: (a, b) -> a      -- Defined in ‘Data.Tuple’
+ghci> :i snd
+snd :: (a, b) -> b      -- Defined in ‘Data.Tuple’
+
+# пустой кортеж
+ghci> :t ()
+() :: ()
+
+# interesting
+ghci> :i ()
+type () :: *
+data () = ()
+        -- Defined in ‘GHC.Tuple’
+instance Monoid () -- Defined in ‘GHC.Base’
+instance Semigroup () -- Defined in ‘GHC.Base’
+instance Bounded () -- Defined in ‘GHC.Enum’
+instance Enum () -- Defined in ‘GHC.Enum’
+instance Ord () -- Defined in ‘GHC.Classes’
+instance Eq () -- Defined in ‘GHC.Classes’
+instance Read () -- Defined in ‘GHC.Read’
+instance Show () -- Defined in ‘GHC.Show’
+```
+repl
+
+```s
+# Будем задавать точки на плоскости парами типа (Double, Double). 
+# Реализуйте функцию dist, которая возвращает расстояние между двумя точками, передаваемыми ей в качестве аргументов.
+# dist :: (Double, Double) -> (Double, Double) -> Double
+# dist p1 p2 = ???
+
+dist :: (Double, Double) -> (Double, Double) -> Double
+dist p1 p2 = sqrt ((fst p2 - fst p1) ^ 2 + (snd p2 - snd p1) ^ 2)
+```
+test
+
+#### 1.4.12 list
+
+Список: коллекция элементов, гомогенная, длина любая.
+Длина не отражается в типе.
+
+Список символов: строка.
+```s
+# список чисел
+ghci> [1,2,3]
+[1,2,3]
+ghci> :t [1,2,3]
+[1,2,3] :: Num a => [a]
+
+# list of chars
+ghci> ['H','i']
+"Hi"
+ghci> :t ['H','i']
+
+['H','i'] :: [Char]
+ghci> :t "Hi"
+"Hi" :: String
+
+ghci> :i String
+type String :: *
+type String = [Char] # alias
+
+ghci> "Hi" == ['H','i']
+True
+```
+repl
+
+#### 1.4.13 list ops (cons, concat infixr)
+
+Операции над списками, два базовых: добавление в голову, конкатенация.
+```s
+# cons # right-assoc, priority 5
+ghci> 'H' : "ello"
+"Hello"
+ghci> :t 'H' : "ello"
+'H' : "ello" :: [Char]
+
+ghci> :t (:)
+(:) :: a -> [a] -> [a]
+
+ghci> :i (:)
+type [] :: * -> *
+data [] a = ... | a : [a]
+        -- Defined in ‘GHC.Types’
+infixr 5 : # right-assoc, priority 5
+
+# concatenation # right-assoc, priority 5
+ghci> "He" ++ "llo"
+"Hello"
+ghci> :t "He" ++ "llo"
+"He" ++ "llo" :: [Char]
+
+ghci> :t (++)
+(++) :: [a] -> [a] -> [a]
+
+ghci> :i (++)
+(++) :: [a] -> [a] -> [a]       -- Defined in ‘GHC.Base’
+infixr 5 ++ # right-assoc, priority 5
+```
+repl
+
+```s
+# correct (op is right-assoc, func.apply is left assoc and highest priority)
+(:) 1 ((++) [2,3] [4,5,6]) # func and func
+[1,2] ++ (:) 3 [4,5,6] # op and func
+1 : [2,3] ++ [4,5,6] # op and op
+[1,2] ++ 3 : [4,5,6] #  op and op
+
+# incorrect
+(++) [1,2] 3 : [4,5,6] # func and op, func first
+[1,2] ++ [3,4,5] : 6 # op and op, cons first
+(:) 1 (++) [2,3] [4,5,6] # func and func, cons first on (item, func)
+[1,2] : 3 ++ [4,5,6] # op and op, concat first
+```
+test
+
+### chaper 1.5 recursion
+
+https://stepik.org/lesson/8413/step/1?next=&unit=1552
+
 ## links
 
 - https://github.com/bitemyapp/learnhaskell/blob/master/guide-ru.md
 - https://hub.docker.com/_/haskell/tags
+- https://hoogle.haskell.org/?hoogle=isDigit&scope=set%3Ahaskell-platform
