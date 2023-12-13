@@ -762,7 +762,9 @@ infixr 5 ++ # right-assoc, priority 5
 repl
 
 ```s
-# correct (op is right-assoc, func.apply is left assoc and highest priority)
+# task: select correct expressions
+# n.b. op is right-assoc, func.apply is left assoc and highest priority
+# correct
 (:) 1 ((++) [2,3] [4,5,6]) # func and func
 [1,2] ++ (:) 3 [4,5,6] # op and func
 1 : [2,3] ++ [4,5,6] # op and op
@@ -776,9 +778,226 @@ repl
 ```
 test
 
-### chaper 1.5 recursion
+### chaper 1.5, recursion
 
 https://stepik.org/lesson/8413/step/1?next=&unit=1552
+
+#### 1.5.2 Замена цикла, рекурсия
+
+Условия не-зацикливания рекурсии:
+Терминирующее условие, вызов с параметром-отличным-от-исходного.
+Вычисление через редуцирование, подстановку (фактических параметров).
+```s
+# справа есть вызов себя
+ghci> factorial n = if n == 0 then 1 else n * factorial (n - 1)
+
+ghci> :t factorial 
+factorial :: (Eq t, Num t) => t -> t
+ghci> factorial 3
+6
+ghci> factorial 33
+8683317618811886495518194401280000000
+
+ghci> factorial (-3)
+*** Exception: stack overflow
+```
+repl
+
+#### 1.5.3 pattern matching
+
+Вместо использования `if-then-else` удобно использовать п.м.
+[chapter-1.5/factorial.hs](./chapter-1.5/factorial.hs)
+```s
+ghci> :load chapter-1.5/factorial.hs
+ghci> :reload Demo
+ghci> factorial' 3
+6
+```
+repl
+
+https://godbolt.org/z/cvnT4ooEr
+
+```s
+# Определите функцию, вычисляющую двойной факториал,
+# то есть произведение натуральных чисел, не превосходящих заданного числа и имеющих ту же четность.
+# Предполагается, что аргумент функции может принимать только неотрицательные значения.
+# Например:
+# 7!! = 7⋅5⋅3⋅1
+# 8!! = 8⋅6⋅4⋅2
+
+doubleFact :: Integer -> Integer
+doubleFact n = ???
+
+ghci> doubleFact n = if (n - 2) <= 0 then n else n * doubleFact (n - 2)
+ghci> doubleFact 7
+105
+ghci> 7*5*3*1
+105
+ghci> doubleFact 8
+384
+ghci> 8*6*4*2
+384
+
+# chapter-1.5/factorial.hs
+doubleFact :: Integer -> Integer
+doubleFact 1 = 1
+doubleFact 2 = 2
+doubleFact n = n * doubleFact (n - 2)
+
+ghci> :reload Demo
+ghci> doubleFact 8
+384
+ghci> doubleFact 7
+105
+```
+test
+
+#### 1.5.5 error, undefined
+
+Проблема тотальности, факториал на отрицательных числах (домен не-отрицательные числа).
+Для обработки ошибок есть две функции: `error`, `undefined`.
+
+`undefined` возвращает "bottom" (основание) - элемент включенный в любой тип (является частью всех типов).
+Поэтому при использовании `undefined` проверка типов будет успешной, при замене любого значения на "основание".
+Аналог в Scala: `???`. Можно использовать при итеративной разработке для замены не реализованных блоков.
+```s
+ghci> error "foo"
+*** Exception: foo
+CallStack (from HasCallStack):
+  error, called at <interactive>:87:1 in interactive:Ghci3
+
+ghci> :i error
+error :: GHC.Stack.Types.HasCallStack => [Char] -> a
+        -- Defined in ‘GHC.Err’
+
+ghci> undefined
+*** Exception: Prelude.undefined
+CallStack (from HasCallStack):
+  undefined, called at <interactive>:92:1 in interactive:Ghci3
+
+ghci> :i undefined
+undefined :: GHC.Stack.Types.HasCallStack => a
+        -- Defined in ‘GHC.Err’
+
+# using error
+factorial'' 0 = 1
+factorial'' n = if n < 0 then error "arg must be >= 0" else n * factorial'' (n - 1)
+
+ghci> :reload Demo
+ghci> factorial'' (-3)
+*** Exception: arg must be >= 0
+CallStack (from HasCallStack):
+  error, called at chapter-1.5/factorial.hs:13:31 in main:Demo
+
+```
+repl
+
+#### 1.5.6 guards
+
+Условные выражения (guard) в pattern matching
+```s
+factorial''' 0         = 1
+factorial''' n | n < 0 = error "arg must be >= 0"
+               | n > 0 = n * factorial''' (n - 1)
+'
+factorial4 :: Integer -> Integer
+factorial4 n | n == 0    = 1
+             | n > 0     = n * factorial4 (n - 1)
+             | otherwise = error "arg must be >= 0"
+
+```
+repl
+
+```s
+# В последнем примере предыдущего шага в охранном выражении использовался идентификатор otherwise.
+# Это не ключевое слово, а константа, определенная для удобства в стандартной библиотеке:
+otherwise = ?
+# Как вы думаете, какова правая часть её определения?
+True
+
+ghci> :i otherwise 
+otherwise :: Bool       -- Defined in ‘GHC.Base’
+
+# Последовательность чисел Фибоначчи 
+# 0,1,1,2,3,5,8,13,21,…
+# легко определить рекурсивно, задав два первых терминирующих значения и определив любое последующее как сумму двух непосредственно предыдущих:
+F0​=0 
+F1=1
+Fn=Fn−1 + Fn−2
+
+# На Haskell данное определение задаётся следующей функцией:
+fibonacci 0 = 0
+fibonacci 1 = 1
+fibonacci n = fibonacci (n - 1) + fibonacci (n - 2)
+# Эта функция определена лишь для неотрицательных чисел. 
+
+# Однако, из данного выше определения можно вывести формулу для вычисления чисел Фибоначчи при отрицательных индексах, 
+# при этом последовательность будет следующей:
+F−1​=1, F−2​=−1, …, F−10​=−55, …
+f(−3) = f(−3+2) − f(−3+1)  
+
+# Измените определение функции fibonacci так, чтобы она была определена для всех целых чисел и 
+# порождала при отрицательных аргументах указанную последовательность.
+fibonacci :: Integer -> Integer
+fibonacci (-2)          = (-1)
+fibonacci (-1)          = 1
+fibonacci 0             = 0
+fibonacci 1             = 1
+fibonacci n | n > 0     = fibonacci (n - 1) + fibonacci (n - 2)
+            | otherwise = fibonacci (n + 2) - fibonacci (n + 1)
+
+```
+test [chapter-1.5\fibonacci](./chapter-1.5/fibonacci.hs)
+
+#### 1.5.9 recursion with accum
+
+Результат накапливается в дополнительном параметре рекурсивной функции.
+Аккум. иногда позволяет снизить выч.сложность рекурсивных функций.
+```s
+factorial5 n  | n >= 0    = helper 1 n
+              | otherwise = error "arg must be >= 0"
+
+helper acc 0 = acc
+helper acc n = helper (acc * n) (n - 1)
+```
+repl
+
+```s
+# GHCi позволяет отслеживать использование памяти и затраты времени на вычисление выражения, 
+# для этого следует выполнить команду 
+ghci> :set +s
+
+ghci> fibonacci 30
+832040
+(1.69 secs, 931,385,680 bytes)
+
+# С помощью механизма аккумуляторов попробуйте написать более эффективную реализацию, 
+# имеющую линейную сложность (по числу рекурсивных вызовов).
+
+fibonacci :: Integer -> Integer
+fibonacci (-2)          = (-1)
+fibonacci (-1)          = 1
+fibonacci 0             = 0
+fibonacci 1             = 1
+fibonacci n | n > 0     = fibonacci (n - 1) + fibonacci (n - 2)
+            | otherwise = fibonacci (n + 2) - fibonacci (n + 1)
+
+fibonacci :: Integer -> Integer
+fibonacci n = fib 0 1 n # fib(0), fib(1), n
+fib :: Integer -> Integer -> Integer -> Integer
+fib a b n | n == 0  = a
+          | n > 0   = fib b (a + b) (n - 1)
+          | n < 0   = fib (b - a) a (n + 1)
+
+ghci> fibonacci' 30
+832040
+(0.00 secs, 77,528 bytes)
+```
+test [fibonacci'](./chapter-1.5/fibonacci.hs)
+
+### chapter 1.6, Локальные связывания и правила отступов
+
+https://stepik.org/lesson/8414/step/1?next=&unit=1553
 
 ## links
 
