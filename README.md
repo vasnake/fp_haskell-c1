@@ -999,6 +999,225 @@ test [fibonacci'](./chapter-1.5/fibonacci.hs)
 
 https://stepik.org/lesson/8414/step/1?next=&unit=1553
 
+#### 1.6.2 identations
+
+Отступы (пробелы в начале строки) в коде имеют важное значение:
+увеличение отступа на след.строке означает "продолжение выражения с предыдущей строки".
+Уменьшение отступа означает завершение предыдущего выражения и начало следующего.
+Табы интерпретируются (всегда) как 8 пробелов.
+Нулевые отступы: начало глобальный обьявлений.
+```hs
+roots ::  Double -> Double -> Double
+          -> (Double, Double) -- отступы позволяют визуально отделить возвращаемый тупль.
+-- Вычисление корней квадратного уравнения:
+-- на входе 3 коэф., на выходе пара корней
+roots a b c = -- отступы позволяют визуально структурировать возвращаемое значение (пара).
+  (
+    (-b - sqrt (b ^ 2 - 4 * a * c)) / (2 * a)
+  ,
+    (-b + sqrt (b ^ 2 - 4 * a * c)) / (2 * a)
+  )
+
+```
+repl
+
+#### 1.6.3 локальное связывание (let ... in ...)
+
+`let ... in ...` это составное выражение с типом, определяемым выражением после `in`
+
+```hs
+ghci> let x = True in (True, x)
+(True,True)
+
+ghci> :t let x = True in (True, x)
+let x = True in (True, x) :: (Bool, Bool)
+
+-- метка `d` связывается с выражением, для последующего использования в выражении после `in`
+roots a b c =
+  let d = sqrt (b ^ 2 - 4 * a * c) in
+  (
+    (-b - d) / (2 * a)
+    , 
+    (-b + d) / (2 * a)
+  )
+
+-- можно задать несколько связываний
+-- порядок связываний не важен, допускается рекурсия (не надо)
+roots a b c =
+  let {d = sqrt (b ^ 2 - 4 * a * c); x1 = (-b - d) / (2 * a); x2 = (-b + d) / (2 * a)}
+  in (x1, x2)
+
+-- удобнее с отступами
+-- внутри `let` отступы должны быть одинаковы: если больше - будет продолжение предыдущего бинда, если меньше - будет завершение `let`
+roots a b c =
+  let 
+    x1 = (-b - d) / aTwice
+    x2 = (-b + d) / aTwice
+    d = sqrt (b ^ 2 - 4 * a * c)
+    aTwice = 2 * a
+  in (x1, x2)
+
+-- test
+(let x = 'w' in [x,'o',x]) ++ "!"
+wow!
+```
+repl
+
+Обьявления могут заключаться в фиг.скобки и разделяться `;`: `{...; ...; ...}`
+
+#### 1.6.5 функции и пат.мат. в `let in`
+
+Внутри `let in` можно обьявлять функции
+```hs
+factorial n
+  | n >= 0 = let
+      helper acc 0 = acc
+      helper acc n = helper (acc * n) (n - 1)
+    in helper 1 n
+  | otherwise = error "arg must be >= 0"
+
+-- можно использовать pattern matching
+rootsDiff a b c = let
+  (x1, x2) = roots a b c
+  in x2 - x1
+
+```
+repl
+
+Можно связать в `let ... in ...` переменные, определения функций, пат.мат.
+
+```hs
+-- Реализуйте (эффективную) функцию `seqA`, находящую элементы следующей рекуррентной последовательности
+{--
+a0​=1; a1​=2; a2​=3
+a(k+3) ​= a(k+2)​ + a(k+1) ​− 2*a(k)
+
+GHCi> seqA 301
+1276538859311178639666612897162414
+
+это как? так?
+if n > 2 then a(n) = a(n-1)​ + a(n-2) ​− 2*a(n-3)
+seqA 0 = 1
+seqA 1 = 2
+seqA 2 = 3
+
+seqA 3 = let
+    n = 3
+    a(n-1) = a2 = 3
+    a(n-2) = a1 = 2
+    a(n-3) = a0 = 1
+  in a2 + a1 - (2 * a0) -- a3 = 3 + 2 - 2*1 = 3
+
+seqA 27 = 755
+
+Первая итерация: 
+  ak = 1
+  a(k+1) = 2
+  a(k+2) = 3
+next: 
+  a(k+3) ​= a(k+2)​ + a(k+1) ​− 2*a(k)
+  a(k+4) ​= a(k+3)​ + a(k+2) ​− 2*a(k+1)
+  a(k+5) ​= a(k+4)​ + a(k+3) ​− 2*a(k+2)
+next:
+  a(k+6) ​= a(k+5)​ + a(k+4) ​− 2*a(k+3)
+  a(k+7) ​= a(k+6)​ + a(k+5) ​− 2*a(k+4)
+  a(k+8) ​= a(k+7)​ + a(k+6) ​− 2*a(k+5)
+...
+--}
+
+seqA :: Integer -> Integer
+seqA n
+    | n < 0 = error "arg must be >= 0"
+    | otherwise = let
+        loop :: Integer -> Integer -> Integer -> Integer -> Integer
+        loop 0 a0 a1 a2 = a0
+        loop 1 a0 a1 a2 = a1
+        loop 2 a0 a1 a2 = a2
+        loop i a0 a1 a2 = let
+                a3 = a2 + a1 - 2 * a0
+            in loop (i - 1) a1 a2 a3
+        in loop n 1 2 3 -- term-check, a0, a1, a2
+```
+test [test-seq_a](./chapter-1.6/test-seq_a.hs)
+
+#### 1.6.7 локальное связывание, `where`
+
+Отличие: `let in` vs `where`, первый это выражение, второй это стейтмент.
+Первый "очень" локален, второй позволяет определить элементы постфактум для всех функции (набора quard выражений).
+
+```hs
+roots a b c = (x1, x2) where
+  x1 = (-b - d) / aTwice
+  x2 = (-b + d) / aTwice
+  d = sqrt (b ^ 2 - 4 * a * c)
+  aTwice = 2 * a
+
+-- let as expression:
+ghci> let x = 2 in x^2
+4
+ghci> (let x = 2 in x^2) / 2
+2.0
+
+-- where is not an expression:
+ghci> x^2 where x = 2
+<interactive>:31:5: error: parse error on input ‘where’
+
+-- let-in не позволяет определить хелпер для всего факториала, в ветке otherwise хелпер недоступен
+factorial n
+  | n >= 0 = let
+      helper acc 0 = acc
+      helper acc n = helper (acc * n) (n - 1)
+    in helper 1 n
+  | otherwise = error "arg must be >= 0"
+
+-- перепишем через where
+factorial n | n >= 0    = helper 1 n
+            | otherwise = error "arg must be >= 0" -- helper available here
+  where
+    helper acc 0 = acc
+    helper acc n = helper (acc * n) (n - 1)
+```
+repl
+
+```hs
+-- Реализуйте функцию, находящую сумму и количество цифр десятичной записи заданного целого числа.
+{--
+GHCi> sum'n'count (-39)
+(12,2)
+--}
+
+sum'n'count :: Integer -> (Integer, Integer)
+sum'n'count x = helper (abs x) 0 0 where -- x, sum, count
+    helper :: Integer -> Integer -> Integer -> (Integer, Integer)
+    helper x sum count  | x < 10     = (sum + x, count + 1)
+                        | otherwise  = helper (div x 10) (sum + mod x 10 ) (count + 1)
+
+```
+test [test-sum_n_count](./chapter-1.6/test-sum_n_count.hs)
+
+```hs
+-- Реализуйте функцию, находящую значение определённого интеграла от заданной функции f
+-- на заданном интервале [a,b] методом трапеций.
+-- Используйте равномерную сетку; достаточно 1000 элементарных отрезков.
+{--
+integration sin pi 0
+-2.0
+
+метод трапеций:
+accumulator += dx * (f(x) + f(x + dx)) / 2
+--}
+
+integration :: (Double -> Double) -> Double -> Double -> Double
+integration fn a b = helper a 0 steps
+    where
+      steps = 1000
+      dx = (b - a) / steps
+      helper _ acc 0 = dx * acc
+      helper x acc steps = helper (x + dx) (acc + (fn x + fn (x + dx)) / 2) (steps - 1)
+
+```
+test [test-integrations](./chapter-1.6/test-integration.hs)
+
 ## links
 
 - https://github.com/bitemyapp/learnhaskell/blob/master/guide-ru.md
