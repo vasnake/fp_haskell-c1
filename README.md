@@ -15,3 +15,4 @@
 - https://compscicenter.ru/courses/func-prog/2015-spring/
 - https://www.lektorium.tv/course/22797
 - https://youtube.com/playlist?list=PLoJC20gNfC2gpI7Dl6fg8uj1a-wfnWTH8&feature=shared
+- https://github.com/denisshevchenko/ohaskell.guide
