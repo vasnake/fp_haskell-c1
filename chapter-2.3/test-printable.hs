@@ -11,4 +11,5 @@ instance Printable () where
     toString _ = "unit type"
 
 instance (Printable a, Printable b) => Printable (a, b) where
-    toString (x, y) = "(" ++ toString x ++ "," ++ toString y ++ ")"
+    -- toString (x, y) = "(" ++ toString x ++ "," ++ toString y ++ ")"
+    toString (x, y) = '(' : toString x ++ ',' : toString y ++ ")"

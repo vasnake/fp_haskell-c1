@@ -758,6 +758,121 @@ test [test-printable](./chapter-2.3/test-printable.hs)
 
 https://stepik.org/lesson/12399/step/1?unit=2829
 
-### 2.4.2
+### 2.4.2 class extension
 
 https://stepik.org/lesson/12399/step/2?unit=2829
+
+Расширение тайпкласса.
+По сути, это расширение существующего интерфейса новыми методами.
+```hs
+-- требование к контексту заявлено уже в определении интерфейса,
+-- не при реализации а при декларации тайпкласса.
+-- Значит, что тип а для участия в тайпклассе Ord должен участвовать в тайпклассе Eq
+-- или, тайпкласс Eq расширен в тайпклассе Ord
+class (Eq a) => Ord a where
+    (<), (<=), (>=), (>) :: a -> a -> Bool
+    max, min :: a -> a -> a
+    compare :: a -> a -> Ordering
+    -- Minimal Complete Definition: either compare or <=
+    -- в стдлиб тайпкласс имеет дефолтные методы и для создания инстанса достаточно определить одну из двух функций.
+
+-- порядок определяет 3 значения: меньше, равно, больше
+ghci> :i Ordering
+type Ordering :: *
+data Ordering = LT | EQ | GT
+
+-- допустимо множественное (наследование) расширение
+class (Eq a, Printable a) => MyClass a where
+```
+repl
+
+```hs
+{--
+Пусть существуют два класса типов `KnownToGork` и `KnownToMork`
+которые предоставляют методы `stomp` (`stab`) и `doesEnrageGork` (`doesEnrageMork`) соответственно:
+Класса типов `KnownToGorkAndMork` является расширением обоих этих классов, предоставляя дополнительно метод `stompOrStab`:
+Задайте реализацию по умолчанию метода `stompOrStab`
+которая вызывает метод `stomp`, если переданное ему значение приводит в ярость Морка
+вызывает `stab`, если оно приводит в ярость Горка
+вызывает сначала `stab`, а потом `stomp`, если оно приводит в ярость их обоих
+Если не происходит ничего из вышеперечисленного, метод должен возвращать переданный ему аргумент
+--}
+class KnownToGork a where
+    stomp :: a -> a
+    doesEnrageGork :: a -> Bool
+class KnownToMork a where
+    stab :: a -> a
+    doesEnrageMork :: a -> Bool
+
+class (KnownToGork a, KnownToMork a) => KnownToGorkAndMork a where
+    stompOrStab :: a -> a
+    stompOrStab x
+        | eg && em = stomp $ stab x
+        | eg = stab x
+        | em = stomp x
+        | otherwise = x
+     where
+       eg = (doesEnrageGork x)
+       em = (doesEnrageMork x)
+```
+test
+
+### 2.4.4 Show, Read (serdes)
+
+https://stepik.org/lesson/12399/step/4?unit=2829
+
+```hs
+-- тайпкласс Show содержит ф. a -> String
+-- Поэтому можно легко сделать печатаемым любой свой тип, просто реализовать тайпкласс Show для своего типа
+ghci> :t show
+show :: Show a => a -> String
+
+ghci> show (1, 2.0, 'c', True)
+"(1,2.0,'c',True)"
+
+-- ф. read полиморфна по возвращаемому значению
+ghci> :t read
+read :: Read a => String -> a
+-- без указания выходного типа ридер падает: полиморфный результат, недостаточно информации для матчинга в конкретный тип
+ghci> read "5" :: Int
+5
+ghci> read "'c'" :: Char
+'c'
+ghci> read "[1,2,3]" :: [Float]
+[1.0,2.0,3.0]
+-- с юнитом проблем нет, тут однозначно
+ghci> read "()"
+()
+
+-- проблема: ф. read читает весь ввод и парсит его весь,
+-- нельзя частично прочитать ввод
+-- альтернатива:
+ghci> :t reads
+reads :: Read a => ReadS a
+-- конструктор типа, параметризован а, при условии что а это тайпкласс Read
+-- функция тотальная, если что не так, получим пустой список,
+-- список может содержать разные варианты разбора если есть неоднозначность парсинга
+ghci> reads "5 rings" :: [(Int, String)]
+[(5," rings")]
+ghci> reads "5 rings"
+[]
+```
+repl
+
+```hs
+-- Имея функцию 
+ip = show a ++ show b ++ show c ++ show d 
+-- определите значения a, b, c, d так, чтобы добиться следующего поведения:
+GHCi> ip
+"127.224.120.12"
+
+a = 127.2
+b = 24.1
+c = 20.1
+d = 2
+```
+test
+
+### 2.4.6
+
+https://stepik.org/lesson/12399/step/6?unit=2829
