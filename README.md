@@ -5,6 +5,9 @@
 - [Chapter 1, intro](./chapter1.md)
 - [Chapter 2, basics](./chapter2.md)
 
+> A parameter is a variable in a function definition. It is a placeholder and hence does not have a concrete value.
+An argument is a value passed during function invocation.
+
 ## links
 
 - https://github.com/bitemyapp/learnhaskell/blob/master/guide-ru.md
