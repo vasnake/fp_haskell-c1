@@ -873,6 +873,210 @@ d = 2
 ```
 test
 
-### 2.4.6
+### 2.4.6 Enum, Bounded
 
-https://stepik.org/lesson/12399/step/6?unit=2829
+Тайпклассы в стандартной библиотеке.
+
+```hs
+-- Enum: перечисление значений типа
+-- typeclass Enum, интерфейс последовательного перебора
+class Enum a where
+    succ, pred :: a -> a
+    toEnum :: Int -> a
+    fromEnum :: a -> Int
+
+ghci> succ 4
+5
+ghci> pred 4
+3
+
+ghci> pred 'z'
+'y'
+ghci> succ 'z'
+'{'
+
+ghci> fromEnum ' '
+32
+
+-- ф. полиморфная по выходу, надо уточнить желаемый тип
+ghci> toEnum 65 :: Char
+'A'
+
+-- Bounded: ограничения диапазона значений
+class Bounded a where
+    minBound, maxBound :: a
+
+ghci> minBound :: Bool
+False
+ghci> maxBound :: Bool
+True
+
+ghci> minBound :: Char
+'\NUL'
+ghci> maxBound :: Char
+'\1114111'
+
+-- Integer un-bounded
+```
+repl
+
+```hs
+-- Реализуйте класс типов
+class (???) => SafeEnum a where
+  ssucc :: a -> a
+  ssucc = undefined
+  spred :: a -> a
+  spred = undefined
+{--
+обе функции которого (ssuc, spred) ведут себя как succ и pred стандартного класса Enum
+однако являются тотальными
+обеспечивают циклическое поведение
+класс должен быть расширением ряда классов типов стандартной библиотеки
+чтобы можно было написать реализацию по умолчанию его методов,
+позволяющую объявлять его представителей без необходимости писать какой бы то ни было код
+Например, для типа Bool должно быть достаточно написать строку
+--}
+instance SafeEnum Bool
+-- и получить возможность вызывать
+GHCi> ssucc False
+True
+GHCi> ssucc True
+False
+
+class (Enum a, Bounded a, Eq a) => SafeEnum a where
+  ssucc :: a -> a 
+  ssucc x
+    | x == maxBound = minBound
+    | otherwise = succ x
+  spred :: a -> a
+  spred x
+    | x == minBound = maxBound
+    | otherwise = pred x
+```
+test [safe_enum](./chapter-2.4/test-safe_enum.hs)
+
+### 2.4.8 Num
+
+```hs
+class Num a where
+    -- declaretion
+    (+), (-), (*) :: a -> a -> a
+    negate :: a -> a
+    abs :: a -> a
+    signum :: a -> a
+    fromInteger :: Integer -> a
+    -- LAW: abx x * signum x == x
+    -- default implementation
+    x - y = x + negate y
+    negate x = 0 - x
+
+-- числовые литералы реализованы как Integer с последующим применением fromInteger
+-- закон (для проверки в тестах): модуль числа * знак числа == число
+-- Операция деления не объявлена для Num, мотив не ясен (типа, реализации разные в интеграл и фракшнл)
+
+-- да, интеграл содержит деление (но наследует не прямо от Num)
+-- два разных деления, различие в эффективности и обработке минуса
+ghci> :i Integral
+type Integral :: * -> Constraint
+class (Real a, Enum a) => Integral a where
+  quot :: a -> a -> a -- эффективное деление
+  rem :: a -> a -> a
+  div :: a -> a -> a -- обычное деление
+  mod :: a -> a -> a
+  quotRem :: a -> a -> (a, a)
+  divMod :: a -> a -> (a, a)
+  toInteger :: a -> Integer
+
+-- наследует напрямую от Num и деление как инфиксный оператор с приоритетом 7
+ghci> :i Fractional
+type Fractional :: * -> Constraint
+class Num a => Fractional a where
+  (/) :: a -> a -> a
+  recip :: a -> a
+  fromRational :: Rational -> a
+
+ghci> :i (/)
+type Fractional :: * -> Constraint
+class Num a => Fractional a where
+  (/) :: a -> a -> a
+  ...
+        -- Defined in ‘GHC.Real’
+infixl 7 /
+
+-- все стандартные мат.операции определены в тайпклассе Floating, наследующем Fractional
+ghci> :i Floating
+type Floating :: * -> Constraint
+class Fractional a => Floating a where
+  pi :: a
+  exp :: a -> a
+  log :: a -> a
+  sqrt :: a -> a
+  (**) :: a -> a -> a
+  logBase :: a -> a -> a
+  sin :: a -> a
+  cos :: a -> a
+  tan :: a -> a
+  asin :: a -> a
+  acos :: a -> a
+  atan :: a -> a
+  sinh :: a -> a
+  cosh :: a -> a
+  tanh :: a -> a
+  asinh :: a -> a
+  acosh :: a -> a
+  atanh :: a -> a
+  GHC.Float.log1p :: a -> a
+  GHC.Float.expm1 :: a -> a
+  GHC.Float.log1pexp :: a -> a
+  GHC.Float.log1mexp :: a -> a
+
+-- операции округления в тайпклассе RealFrac
+ghci> :i RealFrac
+type RealFrac :: * -> Constraint
+class (Real a, Fractional a) => RealFrac a where
+  properFraction :: Integral b => a -> (b, a)
+  truncate :: Integral b => a -> b
+  round :: Integral b => a -> b
+  ceiling :: Integral b => a -> b
+  floor :: Integral b => a -> b
+
+-- операции связаннаые с кодированием (представлением) чисел с п.точкой в тайпклассе RealFloat
+ghci> :i RealFloat 
+type RealFloat :: * -> Constraint
+class (RealFrac a, Floating a) => RealFloat a where
+  floatRadix :: a -> Integer
+  floatDigits :: a -> Int
+  floatRange :: a -> (Int, Int)
+  decodeFloat :: a -> (Integer, Int)
+  encodeFloat :: Integer -> Int -> a
+  exponent :: a -> Int
+  significand :: a -> a
+  scaleFloat :: Int -> a -> a
+  isNaN :: a -> Bool
+  isInfinite :: a -> Bool
+  isDenormalized :: a -> Bool
+  isNegativeZero :: a -> Bool
+  isIEEE :: a -> Bool
+  atan2 :: a -> a -> a
+
+```
+repl
+
+```hs
+-- Напишите функцию с сигнатурой:
+avg :: Int -> Int -> Int -> Double
+-- вычисляющую среднее значение переданных в нее аргументов
+GHCi> avg 3 4 8
+5.0
+
+avg :: Int -> Int -> Int -> Double
+avg a b c = (/ 3) . sum . map fromIntegral $ [a,b,c]
+```
+test
+
+## 2.5, Нестрогая семантика, ленивые вычисления
+
+https://stepik.org/lesson/8421/step/1?unit=1557
+
+Последствия ленивости вычислений, строгие / не-строгие функции и возможности оптимизации (скорость, память).
+Трюк с форсированием (запуском) вычисления.
