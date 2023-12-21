@@ -4,6 +4,7 @@
 
 - [Chapter 1, intro](./chapter1.md)
 - [Chapter 2, basics](./chapter2.md)
+- [Chapter 3, lists](./chapter3.md)
 
 Хороший вводный курс. Кратко, по делу, с интересными задачками.
 Не все задачки одинаково полезны, но, в целом, ОК.
