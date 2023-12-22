@@ -17,6 +17,10 @@
 > A parameter is a variable in a function definition. It is a placeholder and hence does not have a concrete value.
 An argument is a value passed during function invocation.
 
+Почему типы данных `SomeTuple = Pair(a, b)` и `Maybe = Nothing | Just a` называются, соответственно, "product" и "sum"?
+Название вытекает из ответа на вопрос: как посчитать область значений, покрываемую парой? `a * b`, перемножить мощности.
+Для суммы, разумеется, сложить мощности.
+
 ## links
 
 - https://github.com/bitemyapp/learnhaskell/blob/master/guide-ru.md

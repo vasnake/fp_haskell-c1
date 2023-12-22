@@ -87,7 +87,7 @@ nTimes elem n
 -- take 10 (repeat 5)
 -- а можно с аккумулятором, через рекурсивного хелпера
 ```
-test
+test [ntimes](./chapter-3.1/test-ntimes.hs)
 
 ### 3.1.5 де-конструкторы head, tail
 
@@ -215,7 +215,7 @@ oddsOnly (x:xs)
     | otherwise = oddsOnly xs
 
 ```
-test
+test [odds_only](./chapter-3.1/test-odds_only.hs)
 
 ### 3.1.9 другие варианты рекурсии на списках
 
@@ -321,7 +321,7 @@ sum3 xs [] zs = sum3 xs [0] zs
 sum3 xs ys [] = sum3 xs ys [0]
 sum3 (x:xs) (y:ys) (z:zs) = x+y+z : sum3 xs ys zs
 ```
-test
+test [sum3](./chapter-3.1/test-sum3.hs)
 
 ```hs
 {--
@@ -379,7 +379,7 @@ groupElems (x:xs) = (x:ys) : groupElems zs
     where (ys,zs) = span (== x) xs
 
 ```
-test
+test [group_elems](./chapter-3.1/test-group_elems.hs)
 
 ### 3.1.14 take, drop, splitAt, `!!`
 
@@ -418,3 +418,186 @@ repl
 ## chapter 3.2, Функции высших порядков над списками
 
 https://stepik.org/lesson/12321/step/1?unit=2785
+
+### 3.2.2 filter, takeWhile, dropWhile, span, break
+
+```hs
+-- два параметра: предикат и список, возвращает список с элементами одобренными предикатом
+ghci> :i filter
+filter :: (a -> Bool) -> [a] -> [a]     -- Defined in ‘GHC.List’
+ghci> filter (< 3) [1,2,3,4,5,4,3,2,1]
+[1,2,2,1]
+
+filter _ [] = []
+filter p (x:xs)
+  | p x = x : filter p xs
+  | otherwise = filter p xs
+
+-- сигнатура как у фильтра
+ghci> :i takeWhile
+takeWhile :: (a -> Bool) -> [a] -> [a]  -- Defined in ‘GHC.List’
+ghci> takeWhile (< 3) [1,2,3,4,5,4,3,2,1]
+[1,2]
+
+takeWhile _ [] = []
+takeWhile p (x:xs)
+  | p x = x : takeWhile p xs
+  | otherwise = [] -- останавливается на первом же обломе предиката и дропает остаток
+
+ghci> :i dropWhile
+dropWhile :: (a -> Bool) -> [a] -> [a]  -- Defined in ‘GHC.List’
+ghci> dropWhile (< 3) [1,2,3,4,5,4,3,2,1]
+[3,4,5,4,3,2,1]
+
+dropWhile _ [] = []
+dropWhile p lst@(x:xs) -- `lst`: локальный алиас для не-деконструированного аргумента
+  | p x = dropWhile p xs
+  | otherwise = lst -- дропает до первого облома и остаток не трогает
+
+-- сигнатура отличается на выходе, возвращает пару списков
+ghci> :i span
+span :: (a -> Bool) -> [a] -> ([a], [a])        -- Defined in ‘GHC.List’
+ghci> span (< 3) [1,2,3,4,5,4,3,2,1]
+([1,2],[3,4,5,4,3,2,1])
+
+span p xs = (takeWhile p xs, dropWhile p xs)
+
+-- как и спан но переворачивает предикат
+ghci> : break
+break :: (a -> Bool) -> [a] -> ([a], [a])       -- Defined in ‘GHC.List’
+ghci> break (< 3) [1,2,3,4,5,4,3,2,1]
+([],[1,2,3,4,5,4,3,2,1])
+
+break p = span (not . p) -- `not . p` композиция функций, предикат завернутый в переворот-булева-значения
+```
+repl
+
+```hs
+{--
+Напишите функцию `readDigits`
+принимающую строку и возвращающую пару строк
+Первый элемент пары содержит цифровой префикс исходной строки
+второй - ее оставшуюся часть
+--}
+GHCi> readDigits "365ads"
+("365","ads")
+GHCi> readDigits "365"
+("365","")
+
+-- В решении вам поможет функция `isDigit` из модуля `Data.Char`
+
+readDigits :: String -> (String, String)
+readDigits = undefined
+
+readDigits :: String -> (String, String)
+readDigits = span (<= '9')
+
+readDigits :: String -> (String, String)
+readDigits = span (\x -> (>= '0') x && (<= '9') x)
+
+readDigits :: String -> (String, String)
+readDigits = break (not . isDigit)
+```
+test [read_digits](./chapter-3.2/test-read_digits.hs)
+
+```hs
+{--
+Реализуйте функцию `filterDisj`
+принимающую два унарных предиката и список
+возвращающую список элементов, удовлетворяющих хотя бы одному из предикатов
+--}
+GHCi> filterDisj (< 10) odd [7,8,10,11,12]
+[7,8,11]
+
+filterDisj :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
+filterDisj = undefined
+
+filterDisj :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
+filterDisj p1 p2 = filter (\x -> p1 x || p2 x)
+-- filterDisj = (filter .) . liftM2 (||) -- pointfree.io
+```
+test [filter_disj](./chapter-3.2/test-filter_disj.hs)
+
+```hs
+{--
+Напишите реализацию функции `qsort`
+Функция qsort должная принимать на вход список элементов
+сортировать его в порядке возрастания с помощью сортировки Хоара:
+для какого-то элемента `x` изначального списка (обычно выбирают первый)
+делить список на элементы меньше и не меньше `x`
+потом запускаться рекурсивно на обеих частях.
+Разрешается использовать только функции, доступные из библиотеки Prelude
+--}
+GHCi> qsort [1,3,2,5]
+[1,2,3,5]
+
+qsort :: Ord a => [a] -> [a]
+qsort = undefined
+
+qsort :: Ord a => [a] -> [a]
+qsort [] = []
+qsort (x:xs) = let (l, r) = splitBy (< x) xs where
+  splitBy pred = foldr f ([], []) where
+    f x ~(yes, no) | pred x = (x : yes, no) 
+                   | otherwise = (yes, x : no)
+  in qsort l ++ x : qsort r
+
+```
+test [qsort](./chapter-3.2/test-qsort.hs)
+
+### 3.2.6 map, concat, concatMap
+
+Трансформация элементов списка, HOF
+```hs
+ghci> :i map
+map :: (a -> b) -> [a] -> [b]   -- Defined in ‘GHC.Base’
+ghci> map (+10) [1,2,3,5]
+[11,12,13,15]
+
+map _ [] = []
+map f (x:xs) = f x : map f xs
+
+-- flatten aka concat, not HOF
+ghci> :i concat
+concat :: Foldable t => t [a] -> [a]    -- Defined in ‘Data.Foldable’
+ghci> concat ["foo", "bar"]
+"foobar"
+
+concat [] = []
+concat (x:xs) = x ++ concat xs -- x :: list
+
+-- flatMap aka concatMap, функция возвращает список, примененная к списку - создает список списков, которые потом flatten
+ghci> :i concatMap
+concatMap :: Foldable t => (a -> [b]) -> t a -> [b]
+        -- Defined in ‘Data.Foldable’
+ghci> concatMap (\x -> [x, toUpper x]) "abc"
+"aAbBcC"
+
+concanMap _ [] = []
+concatMap f (x:xs) = concat (map f xs) -- можно убрать "точки"
+concatMap f = concat . map f -- маппинг завернут в конкат, композиция
+-- > bind и (concatMap для списков) одно и тоже? Да
+
+-- как можно "посчитать" композицию функций
+map :: (a -> x) -> ([a] -> [x]  )
+(concat .) ::      (y   -> [[b]]) -> (y -> [b])
+-- унифицируем (заменяем) y := [a], x:= [b]
+map       :: (a -> [b]) -> ([a] -> [[b]])
+(concat .) ::              ([a] -> [[b]]) -> ([a] -> [b])
+-- итого:               - cut       cut -
+(concat .) . map :: (a -> [b]) -> ([a] -> [b])
+
+\f xs -> concat (map f xs) =   -- определение композиции
+\f xs -> (concat . map f) xs = -- эта-редукция 
+\f -> concat . map f =         -- определение сечения
+\f -> (concat .) (map f) =     -- определение композиции -- ИСПРАВИЛ ОПЕЧАТКУ
+\f -> ((concat .) . map) f =   -- эта-редукция 
+(concat .) . map
+
+```
+repl
+
+```hs
+https://stepik.org/lesson/12321/step/7?unit=2785
+```
+test
