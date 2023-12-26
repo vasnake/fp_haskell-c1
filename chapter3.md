@@ -899,4 +899,177 @@ fib a b n | n == 0  = a
 ```
 test [fib_stream](./chapter-3.3/test-fib_stream.hs)
 
-### 3.3.4
+### 3.3.4 repeat, replicate, cycle, iterate
+
+Рассмотрим полезные стандартные ф. генераторы списков
+```hs
+ghci> :i repeat
+repeat :: a -> [a]      -- Defined in ‘GHC.List’
+ghci> take 5 $ repeat 'c'
+"ccccc"
+repeat x = xs where xs = x : xs -- оптимизированная реализация
+
+ghci> :i replicate
+replicate :: Int -> a -> [a]    -- Defined in ‘GHC.List’
+ghci> replicate 5 'c'
+"ccccc"
+replicate n x = take n (repeat x)
+
+ghci> :i cycle
+cycle :: GHC.Stack.Types.HasCallStack => [a] -> [a]
+        -- Defined in ‘GHC.List’
+ghci> take 5 $ cycle [1,2,3]
+[1,2,3,1,2]
+cycle [] = error "empty list"
+cycle xs = ys where ys = xs ++ ys -- 
+
+ghci> :i iterate
+iterate :: (a -> a) -> a -> [a]         -- Defined in ‘GHC.List’
+ghci> take 7 $ iterate (+ 3) 1 -- 1+3, 1+3+3, ...
+[1,4,7,10,13,16,19]
+ghci> take 6 $ iterate (^2) 2 -- срез бинарного оператора "возведение в степень" применить к 2, потом к 2^2, ...
+[2,4,16,256,65536,4294967296]
+iterate f x = x : iterate f (f x)
+
+-- оптимизация рекурсии
+ghci> :set +s
+
+let repeat' x = x : repeat' x -- медленно и много памяти, не делай так
+ghci> repeat' 42 !! 100000000
+42
+(6.19 secs, 7,200,065,304 bytes)
+
+let repeat'' x = xs where xs = x:xs -- быстро и мало памяти, будь как xs
+ghci> repeat'' 42 !! 100000000
+42
+(0.28 secs, 65,304 bytes)
+```
+repl
+
+```hs
+{--
+Предположим, что функция `repeat`
+была бы определена следующим образом
+`repeat = iterate repeatHelper`
+определите, как должна выглядеть функция repeatHelper
+--}
+repeatHelper = undefined
+
+-- reference
+let repeat x = xs where xs = x:xs -- repeat 1 = [1,1,1,1, ...]
+let iterate f x = x : iterate f (f x) -- iterate (+ 3) 1 = [1,4,7,10,13,16,19, ...
+
+-- нужна функция одного аргумента, которая при вызове возвращает свой аргумент, это id
+repeatHelper = id
+```
+test
+
+### 3.3.6 арифметические последовательности enumFrom..
+
+Специальные конструкции для генерации списков
+```hs
+ghci> [False .. ]
+[False,True]
+ghci> [False .. True]
+[False,True]
+
+-- сахал для enumFromTo
+ghci> [1 .. 10]
+[1,2,3,4,5,6,7,8,9,10]
+
+ghci> :i enumFromTo
+type Enum :: * -> Constraint
+class Enum a where -- typeclass Enum
+  ...
+  enumFromTo :: a -> a -> [a]
+  ...
+        -- Defined in ‘GHC.Enum’
+ghci> enumFromTo 1 10
+[1,2,3,4,5,6,7,8,9,10]
+
+-- Char have an instance of typeclass Enum
+ghci> [' ' .. '~']
+" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+
+-- последовательность с шагом
+ghci> [1,3 .. 10] -- шаг = 2, получить все нечетные числа до 10
+[1,3,5,7,9]
+-- сахар для enumFromThenTo
+ghci> :i enumFromThenTo
+type Enum :: * -> Constraint
+class Enum a where
+  ...
+  enumFromThenTo :: a -> a -> a -> [a]
+        -- Defined in ‘GHC.Enum’
+ghci> enumFromThenTo 1 3 10
+[1,3,5,7,9]
+
+-- можно не указыать закрывающее значение, получим бесконечную последовательность
+ghci> take 100 $ [' ' ..]
+" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\DEL\128\129\130\131"
+-- сахар для enumFrom
+ghci> :i enumFrom
+type Enum :: * -> Constraint
+class Enum a where
+  ...
+  enumFrom :: a -> [a]
+  ...
+        -- Defined in ‘GHC.Enum’
+
+-- бесконечность с шагом (числа кратные 7)
+ghci> take 7 [7,14 ..]
+[7,14,21,28,35,42,49]
+-- сахар для enumFromThen
+ghci> :i enumFromThen
+type Enum :: * -> Constraint
+class Enum a where
+  ...
+  enumFromThen :: a -> a -> [a]
+  ...
+        -- Defined in ‘GHC.Enum’
+
+-- Можно поразмышлять над следующими конструкциями:
+[1,1 .. 1]
+[1,1 .. 2]
+[1,1 .. 0]
+```
+repl
+
+```hs
+-- Пусть задан тип `Odd` нечетных чисел следующим образом
+
+data Odd = Odd Integer 
+  deriving (Eq, Show)
+
+-- Сделайте этот тип представителем класса типов `Enum`
+
+GHCi> succ $ Odd (-100000000000003)
+Odd (-100000000000001)
+
+-- Конструкции с четным аргументом, типа `Odd 2`, считаются недопустимыми и не тестируются
+{--
+Примечание. Мы еще не знакомились с объявлениями пользовательских типов данных, 
+однако, скорее всего, приведенное объявление не вызовет сложностей. 
+Здесь объявляется тип данных `Odd` с конструктором `Odd`. 
+Фактически это простая упаковка для типа `Integer`. 
+Часть `deriving (Eq, Show)` указывает компилятору, чтобы он автоматически сгенерировал представителей соответствующих классов типов 
+для нашего типа (такая возможность имеется для ряда стандартных классов типов). 
+Значения типа `Odd` можно конструировать следующим образом:
+--}
+GHCi> let x = Odd 33
+GHCi> x
+Odd 33
+
+-- и использовать конструктор данных `Odd` в сопоставлении с образцом:
+
+addEven :: Odd -> Integer -> Odd
+addEven (Odd n) m | m `mod` 2 == 0 = Odd (n + m)
+                  | otherwise      = error "addEven: second parameter cannot be odd"
+
+-- data Odd = Odd Integer deriving (Eq,Show)
+-- не убирайте комментарий с предыдущей строки
+-- определение Odd уже присутствует в вызывающей программе
+instance Enum Odd where
+
+```
+test [odd](./chapter-3.3/test-odd.hs)
