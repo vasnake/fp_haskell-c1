@@ -885,12 +885,18 @@ GHCi> take 10 $ fibStream
 fibStream :: [Integer]
 fibStream = undefined
 
+fibStream :: [Integer]
+fibStream = 0 : zipWith (+) fibStream (1 : fibStream)
+
+-- reference
+-- fibonacci in linear time, in reverse order
 fibonacci :: Integer -> Integer
 fibonacci = fib 0 1 -- fib(0), fib(1), n -- Eta reduced
 fib :: Integer -> Integer -> Integer -> Integer
 fib a b n | n == 0  = a
           | n > 0   = fib b (a + b) (n - 1)
           | n < 0   = fib (b - a) a (n + 1)
-
 ```
-test [](./chapter-3.3/test-fib_stream.hs)
+test [fib_stream](./chapter-3.3/test-fib_stream.hs)
+
+### 3.3.4

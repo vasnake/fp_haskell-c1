@@ -32,3 +32,4 @@ An argument is a value passed during function invocation.
 - https://www.lektorium.tv/course/22797
 - https://youtube.com/playlist?list=PLoJC20gNfC2gpI7Dl6fg8uj1a-wfnWTH8&feature=shared
 - https://github.com/denisshevchenko/ohaskell.guide
+- https://wiki.haskell.org/Programming_guidelines#Naming_Conventions
