@@ -1071,5 +1071,15 @@ addEven (Odd n) m | m `mod` 2 == 0 = Odd (n + m)
 -- определение Odd уже присутствует в вызывающей программе
 instance Enum Odd where
 
+instance Enum Odd where
+  succ (Odd a) = Odd $ a + 2
+  pred (Odd a) = Odd $ a - 2
+  toEnum x = Odd $ toInteger x
+  fromEnum (Odd a) = fromEnum a
+  enumFrom a = [a,succ a..]
+  enumFromTo a b = [a,succ a..b]
+  enumFromThen (Odd a) (Odd b) = map Odd [a, b..]
+  enumFromThenTo (Odd a) (Odd b) (Odd c) = map Odd [a, b..c]
+
 ```
 test [odd](./chapter-3.3/test-odd.hs)
