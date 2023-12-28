@@ -1149,11 +1149,105 @@ change 0 = [[]]
 change s = [ c:cs | c <- coins, c <= s, cs <- change (s - c) ]
 
 change :: (Ord a, Num a) => a -> [[a]]
-change s =  [ c:cs | c <- coins, c <= s, cs <- if c == s then [[]] else change (s - c)]
-
+change s =  [ c:cs | c <- coins, c <= s, cs <- if c == s then [[]] else change (s - c) ]
 ```
 test [change](./chapter-3.3/test-change.hs)
 
-### chapter 3.4, Правая свертка
+## chapter 3.4, Правая свертка
 
 https://stepik.org/lesson/4745/step/1?unit=1081
+
+```hs
+foldr' :: (a -> b -> b) -> b -> [a] -> b
+foldr' _ ini [] = ini
+foldr' f ini (x:xs) = f x (foldr' f ini xs)
+
+-- !!! not used !!!
+-- foldl' :: (b -> a -> b) -> b -> [a] -> b
+-- foldl' _ acc [] = acc
+-- foldl' f acc (x:xs) = foldl' f (f acc x) xs
+
+any' :: (a -> Bool) -> [a] -> Bool
+any' p xs = foldr' (\ x res -> p x || res) False xs
+
+elem' :: Eq a => a -> [a] -> Bool
+elem' a xs = any' (== a) xs
+
+length' :: [a] -> Int
+length' xs = foldr' (const succ) 0 xs
+
+sum' :: Num a => [a] -> a
+sum' xs = foldr' (+) 0 xs
+
+product' :: Num a => [a] -> a
+product' xs = foldr' (*) 1 xs
+
+concat' :: [[a]] -> [a]
+concat' xs = foldr' (++) [] xs
+
+-- !!! canonical, not used !!!
+-- map' :: (a -> b) -> [a] -> [b]
+-- map' _ [] = []
+-- map' f (x:xs) = f x : map' f xs
+
+-- map using foldr
+map'' :: (a -> b) -> [a] -> [b]
+map'' f xs = foldr' (\ x rest -> f x : rest) [] xs
+
+fact' :: (Enum a, Num a) => a -> a
+fact' n = product' [1..n]
+
+filter' :: (a -> Bool) -> [a] -> [a]
+filter' p xs = foldr' (\ x rest -> if p x then x : rest else rest) [] xs
+```
+repl
+
+### 3.4.2 foldr, паттерн рекурсивной обработки списка
+
+Постоянно видим один и тот же паттерн обработки списка: применяем ф. к голове и рекурсивно вызываем себя на хвосте.
+Обобщение шаблона.
+```hs
+-- три показательные ф. видно паттерн? инициализирующее значение и операция могут быть вынесены наружу
+-- получаем редукцию, свертку списка
+sum :: [Int] -> Int
+sum [] = 0
+sum (x:xs) = x + sum xs
+
+product :: [Int] -> Int
+product [] = 1
+product (x:xs) = x * sum xs
+
+concat :: [[a]] -> [a]
+concat [] = []
+concat (x:xs) = x ++ concat xs
+
+-- разберем желаемую сигнатуру свертки
+fold :: (a -> b -> b) -> b -> [a] -> b
+-- удобно составлять (и разбирать) сигнатуру с хвоста:
+-- возвращает б, на входе: список а, инициализирующее значение б, функция редуцирования (a,b) -> b
+
+-- реализация
+fold f ini [] = ini -- на пустом входе вернуть инициализирующее значение (затравку свертки)
+fold f ini (x:xs) = x `f` (fold f ini xs) -- ini это НЕ аккумулятор, это затравка свертки
+-- видно, как реализован вышеупомянутый паттерн свертки? голова оп рекурсивный-хвост
+-- если подумать, можно заметить, что это ПРАВАЯ свертка, вычисления стартуют после исчерпания списка рекурсией, 
+-- с последнего элемента и ини значения.
+-- поэтому, это foldR
+
+-- foldL можно реализовать применив фокус с аккумулятором и TCO (внутренний метод `helper`, рекурсивный, оптимизированный в цикл)
+
+-- перепишем показательные ф. через свертку
+sum xs = fold (+) 0 xs
+sum = fold (+) 0 -- pointfree
+```
+repl
+
+```hs
+https://stepik.org/lesson/4745/step/3?unit=1081
+TODO
+```
+test
+
+### 3.4.4
+
+https://stepik.org/lesson/4745/step/4?unit=1081
