@@ -1144,5 +1144,16 @@ GHCi> change 7
 change :: (Ord a, Num a) => a -> [[a]]
 change = undefined
 
+change :: (Ord a, Num a) => a -> [[a]]
+change 0 = [[]]
+change s = [ c:cs | c <- coins, c <= s, cs <- change (s - c) ]
+
+change :: (Ord a, Num a) => a -> [[a]]
+change s =  [ c:cs | c <- coins, c <= s, cs <- if c == s then [[]] else change (s - c)]
+
 ```
-test
+test [change](./chapter-3.3/test-change.hs)
+
+### chapter 3.4, Правая свертка
+
+https://stepik.org/lesson/4745/step/1?unit=1081
