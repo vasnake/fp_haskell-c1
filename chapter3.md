@@ -1205,9 +1205,9 @@ repl
 ### 3.4.2 foldr, паттерн рекурсивной обработки списка
 
 Постоянно видим один и тот же паттерн обработки списка: применяем ф. к голове и рекурсивно вызываем себя на хвосте.
-Обобщение шаблона.
+Обобщение шаблона
 ```hs
--- три показательные ф. видно паттерн? инициализирующее значение и операция могут быть вынесены наружу
+--Вот три показательные ф. Видно паттерн? инициализирующее значение и операция могут быть вынесены наружу
 -- получаем редукцию, свертку списка
 sum :: [Int] -> Int
 sum [] = 0
@@ -1227,7 +1227,7 @@ fold :: (a -> b -> b) -> b -> [a] -> b
 -- возвращает б, на входе: список а, инициализирующее значение б, функция редуцирования (a,b) -> b
 
 -- реализация
-fold f ini [] = ini -- на пустом входе вернуть инициализирующее значение (затравку свертки)
+fold f ini [] = ini -- на пустом входе: вернуть инициализирующее значение (затравку свертки)
 fold f ini (x:xs) = x `f` (fold f ini xs) -- ini это НЕ аккумулятор, это затравка свертки
 -- видно, как реализован вышеупомянутый паттерн свертки? (голова - оп. - рекурсивный-хвост)
 -- если подумать, можно заметить, что это ПРАВАЯ свертка, вычисления стартуют после исчерпания списка рекурсией, 
@@ -1244,9 +1244,27 @@ sum = fold (+) 0 -- pointfree
 repl
 
 ```hs
-TODO
-https://stepik.org/lesson/4745/step/3?unit=1081
+-- Напишите реализацию функции `concatList` через `foldr`
 
+GHCi> concatList [[1,2],[],[3]]
+[1,2,3]
+
+concatList :: [[a]] -> [a]
+concatList = foldr undefined undefined
+
+-- имеем
+foldr :: (a -> b -> b) -> b -> [a] -> b
+-- с хвоста: возвращает б, на входе: список а, инициализирующее значение б, функция редуцирования (a,b) -> b
+
+concatList :: [[a]] -> [a]
+concatList xs = foldr binOp ini xs where
+  binOp = (++)
+  ini = []
+-- и отрефакторить:
+concatList xs = foldr binOp ini xs where {binOp = (++); ini = []}
+concatList = foldr binOp ini where {binOp = (++); ini = []}
+-- ответ:
+concatList = foldr (++) []
 ```
 test
 
@@ -1287,14 +1305,62 @@ sumPositiveSquares = sum . map (^2) . filter (> 0)
 repl
 
 ```hs
-TODO
-https://stepik.org/lesson/4745/step/5?unit=1081
+{--
+Используя функцию `foldr`
+напишите реализацию функции `lengthList`
+вычисляющей количество элементов в списке
+
+GHCi> lengthList [7,6,5]
+3
+--}
+lengthList :: [a] -> Int
+lengthList = foldr undefined undefined
+
+-- имеем свертку
+foldr :: (a -> b -> b) -> b -> [a] -> b -- параметры: функ. a -> b -> b; затравка b; список [a]; результат: b
+
+-- тогда
+lengthList xs = foldr binOp ini xs where
+  binOp xa xb = xb + 1 -- при наличии элемента списка xa добавляем 1 к частичному результату xb
+  ini = 0 -- количество элементов пустого списка
+
+-- рефакторинг:
+lengthList xs = foldr binOp ini xs where {binOp xa xb = xb + 1; ini = 0}
+lengthList = foldr binOp ini where {binOp xa xb = xb + 1; ini = 0} -- pointfree
+-- ответ:
+lengthList = foldr (\ _ acc -> acc + 1) 0
+
+-- альтернатива
+lengthList = foldr (const succ) 0
 ```
 test
 
 ```hs
-TODO
-https://stepik.org/lesson/4745/step/6?unit=1081
+{--
+Реализуйте функцию `sumOdd`
+которая суммирует элементы списка целых чисел
+имеющие нечетные значения
+
+GHCi> sumOdd [2,5,30,37]
+42
+--}
+sumOdd :: [Integer] -> Integer
+sumOdd = foldr (\x s -> undefined) undefined
+
+-- имеем свертку
+foldr :: (a -> b -> b) -> b -> [a] -> b -- параметры: функ. a -> b -> b; затравка b; список [a]; результат: b
+
+-- тогда
+sumOdd = foldr (\ x s -> x `binOp` s) ini where
+  ini = 0 -- сумма пустого списка = 0
+  binOp x acc = if odd x then x + acc else acc
+
+-- ответ после рефакторинга:
+sumOdd = foldr (\ x s -> if odd x then x + s else s) 0
+
+-- альтернатива
+sumOdd = foldr (\x s -> s + x * (x `mod` 2)) 0
+sumOdd = foldr (\ x s -> s + x * mod x 2) 0
 ```
 test
 
@@ -1337,16 +1403,31 @@ foldr f z . map g . filter h
 repl
 
 ```hs
-TODO
-https://stepik.org/lesson/4745/step/8?unit=1081
+-- Какой функции стандартной библиотеки, суженной на списки, эквивалентно выражение 
+foldr (:) []
+
+foldr (:) [] xs -- binOp ini list
+-- к хвосту подклеиваем голову = сборка списка, получим идентичный входному списко
+-- ответ
+id
 ```
 test
 
 ```hs
-TODO
-https://stepik.org/lesson/4745/step/9?unit=1081
+Какой функции стандартной библиотеки эквивалентно выражение 
+foldr const undefined
+
+foldr const undefined xs -- binOp ini list
+-- const это ф. двух параметров, возвращающая первый аргумент
+-- следовательно, при первой же подстановке, const вернет первый элемент списка
+-- foldr const undefined [1 ..] ~> const 1 (not-interested) -- второй аргумент даже вычисляться не будет
+-- ответ:
+head
+
 ```
 test
+
+## chapter 3.5, Левая свертка и ее сравнение с правой
 
 
 
