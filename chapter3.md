@@ -1451,9 +1451,46 @@ foldl :: (b -> a -> b) -> b -> [a] -> b
 repl
 
 ```hs
-TODO
-https://stepik.org/lesson/5790/step/3?unit=1136
+{--
+При каком значении переменной `x`
+следующие два выражения примут одно и то же значение
+(отличное от неопределенного)
+--}
+foldr (-) x [2,1,5]
+foldl (-) x [2,1,5]
 
+-- задачка на понимание правой и левой ассоциативности и на решение уравнения
+2 - (1 - (5 - x)) -- foldr
+((x - 2) - 1) - 5 -- foldl
+
+2 - (1 - (5 - x)) = ((x - 2) - 1) - 5
+
+x = 7
+
+ghci> foldl (-) (7) [2,1,5]
+-1
+ghci> foldr (-) (7) [2,1,5]
+-1
+
+-- :{\n ..lines.. \n:}\n       multiline command
+:{
+solve x
+  | r == l    = x
+  | otherwise = solve (x + 1)
+    where
+      r = foldr (-) x xs
+      l = foldl (-) x xs
+      xs = [2,1,5]
+:}
+solve (-33)
+
+-- f (n:ns) = if foldr (-) n [2,1,5] == foldl (-) n [2,1,5] then n else f ns
+ghci> f (n:ns) = if foldr (-) n [2,1,5] == foldl (-) n [2,1,5] then n else f ns
+ghci> f [-33 .. 33]
+7
+
+ghci> [x | x <- [-10..10], (foldr (-) x [2,1,5]) == (foldl (-) x [2,1,5])]
+[7]
 ```
 test
 
@@ -1557,9 +1594,9 @@ foldl f ini (x:xs) = foldl f (f ini x) xs
 -- Если редуцирующая f не строгая по второму аргументу, то далее в глубину можно не ходить.
 
 foldr f ini (x:xs) = x `f` (foldr f ini xs)
-в головном редексе находится сворачивающая функция, при замене которой на тело
-может произойти завершение вычислений, не исчерпывая список (или память).
-Редукция выражений дает поработать функции свертки.
+-- в головном редексе находится сворачивающая функция, при замене которой на тело
+-- может произойти завершение вычислений, не исчерпывая список (или память).
+-- Редукция выражений дает поработать функции свертки.
 
 -- пример на бесконечном списке
 
@@ -1608,20 +1645,162 @@ ghci> foldr (\ x (s, p) -> (x + s, x * p)) (0, 1) [1,2,3,4]
 repl
 
 ```hs
-TODO
-https://stepik.org/lesson/5790/step/8?unit=1136
+{--
+Реализуйте функцию `meanList`
+которая находит среднее значение элементов списка
+используя однократный вызов функции свертки
+
+GHCi> meanList [1,2,3,4]
+2.5
+
+Постобработка считается допустимой,
+то есть предполагаемая реализация функции `meanList` имеет вид
+meanList = someFun . foldr someFoldingFun someIni
+--}
+
+-- не "среднее" а "медиану", значение находящееся в середине списка
+-- https://www.google.com/search?q=mean+vs+avg
+-- нет, это я перепутал среднее с медианой. Нужно среднее.
+
+meanList :: [Double] -> Double
+meanList = undefined
+
+:{
+meanList :: [Double] -> Double
+meanList = someFun . foldr someFoldingFun someIni where
+  -- sum / length. What about empty list?
+  someFun (sum, len) = sum / len -- div by zero, problem
+  someFoldingFun x (psum, plen) = (psum + x, plen + 1) -- foldr binOp, first: list elem, second: partial (sum, len)
+  someIni = (0, 0) -- empty list (sum, len)
+:}
 ```
 test
 
 ```hs
-TODO
-https://stepik.org/lesson/5790/step/9?unit=1136
+{--
+Используя однократный вызов свертки
+реализуйте функцию `evenOnly`
+которая выбрасывает из списка элементы, стоящие на нечетных местах
+оставляя только четные
+
+GHCi> evenOnly [1..10]
+[2,4,6,8,10]
+GHCi> evenOnly ['a'..'z']
+"bdfhjlnprtvxz"
+--}
+
+evenOnly :: [a] -> [a]
+evenOnly = undefined
+
+-- разбор
+ghci> [1 .. 10]
+[1,2,3,4,5,6,7,8,9,10]
+-- но после фильтра (нам надо реализовать фильтр) получаем
+[2,4,6,8,10]
+-- удалены элементы с индексами 0, 2, 4, ...
+-- эти индексы названы "нечетными", что приводит нас к дополнению: индексация начинается с 1
+
+-- reference
+foldr :: (a -> b -> b) -> b -> [a] -> b
+foldr f ini [] = ini
+foldr f ini (x:xs) = x `f` (foldr f ini xs)
+
+foldl :: (b -> a -> b) -> b -> [a] -> b
+foldl f ini [] = ini
+foldl f ini (x:xs) = foldl f (f ini x) xs -- ленивая, не строгая f
+
+-- решение: foldl ибо нумерация начинается слева, с 1
+:{
+evenOnly :: [a] -> [a]
+evenOnly = snd . foldl binOp ini where -- pointfree, parameter not mentioned
+  ini = (0, []) -- pre-first idx, resulting list
+  binOp (pIdx, pList) x = if odd idx then (idx, pList) else (idx, pList ++ [x]) where idx = succ pIdx
+:}
+
+ghci> evenOnly ['a'..'z']
+"bdfhjlnprtvxz"
+ghci> evenOnly [1 .. 10]
+[2,4,6,8,10]
+
+-- альтернатива на правой свертке
+evenOnly :: [a] -> [a]
+evenOnly = snd . foldr (\a (xs, ys) -> (a : ys, xs)) ([], [])
+-- чередует добавление головы, получая список раскиданный по двум
+-- возвращает правильный список (правильной — это не тот, в который был добавлен последний элемент
 ```
 test
 
 ```hs
-TODO
-https://stepik.org/lesson/5790/step/10?unit=1136
+{--
+Попробуйте добиться того, чтобы реализованная вами в прошлом задании функция `evenOnly`
+позволяла работать и с бесконечными списками
+
+То есть, например, 
+запрос на первые три элемента бесконечного списка, возвращаемого этой функцией, 
+примененной к списку всех натуральных чисел, должен завершаться
+
+GHCi> take 3 (evenOnly [1..])
+[2,4,6]
+--}
+
+evenOnly :: [a] -> [a]
+evenOnly = undefined
+
+-- reference
+foldr :: (a -> b -> b) -> b -> [a] -> b
+foldr f ini [] = ini
+foldr f ini (x:xs) = x `f` (foldr f ini xs)
+-- в головном редексе находится сворачивающая функция, при замене которой на тело
+-- может произойти завершение вычислений, не исчерпывая список (или память). См. пример с `any`.
+-- Редукция выражений дает поработать функции свертки.
+
+foldl :: (b -> a -> b) -> b -> [a] -> b
+foldl f ini [] = ini
+foldl f ini (x:xs) = foldl f (f ini x) xs -- ленивая, не строгая f
+-- первое же выражение это вызов себя, это редекс, который тут же будет заменен на его тело,
+-- этот процесс будет продолжаться, пока не кончится список или память.
+-- Редукция выражений не дает работать функции свертки до достижения конца списка.
+-- Важно: если редуцирующая f не строгая по второму аргументу, то далее в глубину можно не ходить.
+
+{--
+> An expression is in weak head normal form (WHNF), if it is either:
+конструктор, билт-ин ф., лямбда абстракция.
+Их аргументы не обязаны быть нормализованы.
+--}
+
+-- решение на левой свертке я не нашел
+
+-- решение на правой свертке (как сказано в лекции: "позволяет работать с бесконечными списками")
+-- чтобы это тут сработало, надо реализацию сделать ленивой: никаких пат.мат, никакий форсажей.
+-- бинарный оператор редукции должен быть ленивым: не содержать редексов и пат.мат. (а только конструкторы, встроенные ф. или лямбды)
+-- https://wiki.haskell.org/Lazy_pattern_match
+-- https://stackoverflow.com/questions/2263541/what-does-mean-in-haskell
+
+-- берем прошлое решение
+evenOnly :: [a] -> [a]
+evenOnly = snd . foldr (\a (xs, ys) -> (a : ys, xs)) ([], [])
+-- модифицируем в ленивое решение (встроенные операции с парой, конструктор пары, нет пат.мат. на параметры)
+evenOnly :: [a] -> [a]
+evenOnly = snd . foldr (\ a p -> lazyOperation a p) ([], []) where lazyOperation = (\ a p -> (a : snd p, fst p))
+-- рефакторим немного
+evenOnly = snd . foldr (\ a p -> (a : snd p, fst p)) ([], [])
+
+-- смотрим альтернативные решения, восхищаемся
+evenOnly :: [a] -> [a]
+evenOnly = snd . foldr (\x ~(xs, ys) -> (x : ys, xs)) ([], []) -- тильду видишь?
+
+evenOnly :: [a] -> [a]
+evenOnly = foldr impl [] . zip (cycle [False, True])
+    where impl (False, x) xs = xs
+          impl (True,  x) xs = x:xs
+
+-- проверка
+ghci> :set +s
+ghci> take 3 (evenOnly [1 ..])
+[2,4,6]
+(0.00 secs, 71,080 bytes)
+ghci> :unset +s
+
 ```
 test
 
