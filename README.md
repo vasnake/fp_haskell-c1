@@ -1,7 +1,9 @@
 # FP Haskell
 
-[Функциональное программирование на языке Haskell / Денис Москвин / stepik](https://stepik.org/course/75/syllabus?next=)
-https://stepik.org/course/Функциональное-программирование-на-языке-Haskell-75
+Часть 1 / 2
+[Функциональное программирование на языке Haskell / Денис Москвин / stepik](https://stepik.org/course/75/syllabus?next=) /
+https://stepik.org/course/Функциональное-программирование-на-языке-Haskell-75 /
+https://stepik.org/75
 
 - [Chapter 1, intro](./chapter1.md)
 - [Chapter 2, basics](./chapter2.md)
@@ -44,6 +46,10 @@ WHNF: слабая заголовочная нормальная форма, wea
 Комбинатор: функция без свободных переменных, в теле только аргументы и операции применения. См. лямбда-исчисление.
 
 ## links
+
+Часть 2 / 2
+[Функциональное программирование на языке Haskell (часть 2)](https://stepik.org/course/693/info) /
+https://stepik.org/693
 
 - https://github.com/bitemyapp/learnhaskell/blob/master/guide-ru.md
 - https://hub.docker.com/_/haskell/tags
