@@ -389,7 +389,7 @@ processData :: SomeData -> String
 processData = (\p -> case p of { (Success, 0) -> "Success"; (Fail, n) -> "Fail: " ++ show n }) . doSomeWork
 
 processData :: SomeData -> String
-processData = m . doSomeWork 
+processData = m . doSomeWork
     where m (r, err) = case r of
                         Fail -> "Fail: " ++ show err
                         Success -> "Success"
@@ -411,7 +411,7 @@ https://stepik.org/lesson/4985/step/1?unit=1083
 
 Типы данных с аргументами - тип "произведение".
 Почему? Декартово произведение, вот почему.
-Область определения вычисляется как x * y если x и y это параметры конструктора.
+Область определения вычисляется как `x * y` если `x` и `y` это параметры конструктора.
 Тип продакт соответствует туплам (кортежам) такого же размера.
 ```hs
 -- тип данных = конструктор, один но с двумя параметрами типа дабл
@@ -427,7 +427,7 @@ data Point = Pt Double Double deriving Show
 ghci> Pt 3.0 4.0
 Pt 3.0 4.0
 
--- пример конструирования точки
+-- пример конструирования точки через вспомогательную ф.
 origin :: Point
 origin = Pt 0.0 0.0
 
@@ -442,8 +442,40 @@ data Point = Point Double Double
 repl
 
 ```hs
-https://stepik.org/lesson/4985/step/3?unit=1083
-TODO
+{--
+Реализуйте функцию `distance`
+возвращающую расстояние между двумя точками
+--}
+data Point = Point Double Double
+
+origin :: Point
+origin = Point 0.0 0.0
+
+distanceToOrigin :: Point -> Double
+distanceToOrigin (Point x y) = sqrt (x ^ 2 + y ^ 2)
+
+distance :: Point -> Point -> Double
+distance = undefined
+
+-- решение: квадрат гипотенузы равен сумме квадратов катетов
+data Point = Point Double Double
+origin :: Point
+origin = Point 0.0 0.0
+distanceToOrigin :: Point -> Double
+distanceToOrigin (Point x y) = sqrt (x ^ 2 + y ^ 2)
+distance :: Point -> Point -> Double
+distance (Point x1 y1) (Point x2 y2) = sqrt (lenX ^ 2 + lenY ^ 2) where
+    lenX = x2 - x1
+    lenY = y2 - y1
+
+ghci> distance (Point 1 2) (Point 3 4)
+2.8284271247461903
+
+-- notes
+> distanceToOrigin - норма https://ru.wikipedia.org/wiki/Нормированное_пространство#Метрика_нормированного_пространства_и_связь_с_нормой
+
+distance :: Point -> Point -> Double
+distance (Point x1 y1) (Point x2 y2) = distanceToOrigin $ Point (x2 - x1) (y2 - y1)
 ```
 test
 
@@ -486,14 +518,97 @@ roots a b c
 repl
 
 ```hs
-https://stepik.org/lesson/4985/step/5?unit=1083
-TODO
+{--
+Определим тип фигур `Shape`
+У него два конструктора: `Circle r` — окружность радиуса `r`
+`Rectangle a b` — прямоугольник с размерами сторон `a` и `b`
+
+data Shape = Circle Double | Rectangle Double Double
+
+Реализуйте функцию `area`, возвращающую площадь фигуры
+Константа `pi` уже определена в стандартной библиотеке
+--}
+data Shape = Circle Double | Rectangle Double Double
+area :: Shape -> Double
+area = undefined
+
+-- решение: площадь круга пи-эр-квадрат, площадь прямоугольника а-умножить-б
+-- тип данных: сумма, поэтому для каждого конструктора делаем отдельный паттерн
+data Shape = Circle Double | Rectangle Double Double
+area :: Shape -> Double
+area (Circle r) = pi * r^2
+area (Rectangle a b) = a * b
+
+ghci> area (Circle 1)
+3.141592653589793
+ghci> area (Rectangle 2 3)
+6.0
+
+-- notes
+-- приоритет возведения в степень выше умножения
+ghci> :i ^
+(^) :: (Num a, Integral b) => a -> b -> a       -- Defined in ‘GHC.Real’
+infixr 8 ^
+ghci> :i *
+type Num :: * -> Constraint
+class Num a where
+  ...
+  (*) :: a -> a -> a
+  ...
+        -- Defined in ‘GHC.Num’
+infixl 7 *
 ```
 test
 
 ```hs
-https://stepik.org/lesson/4985/step/6?unit=1083
-TODO
+{--
+В одном из прошлых заданий мы встречали тип `Result` и функцию `doSomeWork`
+Функция `doSomeWork` возвращала результат своей работы и либо код ошибки в случае неудачи, либо `0` в случае успеха
+
+data Result = Fail | Success
+doSomeWork :: SomeData -> (Result, Int)
+
+в случае успеха мы вынуждены возвращать некоторое значение, которое не несет никакой смысловой нагрузки
+
+Используя функцию `doSomeWork`, определите функцию `doSomeWork'`
+чтобы она возвращала код ошибки только в случае неудачи
+
+Для этого необходимо определить тип `Result'`
+
+определите instance `Show` для `Result'`
+чтобы show возвращал "Success" в случае успеха
+и "Fail: N" в случае неудачи, где `N` — код ошибки
+--}
+data Result' = ?
+instance Show Result' where
+    show = undefined
+doSomeWork' :: SomeData -> Result'
+doSomeWork' = undefined
+
+-- reference
+data Result = Fail | Success
+doSomeWork :: SomeData -> (Result, Int)
+processData :: SomeData -> String
+processData = m . doSomeWork
+    where m (r, err) = case r of
+                        Fail -> "Fail: " ++ show err
+                        Success -> "Success"
+
+-- решение
+
+-- при успехе кода нет, при ошибке есть код (сумма). Имена со штрихом во избежание коллизий
+data Result' = Success' | Fail' Int
+
+-- "Success" в случае успеха | "Fail: N" в случае неудачи, где `N` — код ошибки
+instance Show Result' where
+    show Success' = "Success"
+    show (Fail' x) = "Fail: " ++ show x
+
+doSomeWork' :: SomeData -> Result' -- при успехе кода нет, при ошибке есть код (сумма)
+doSomeWork' = decode . doSomeWork where
+    decode (tag, code) = case tag of
+        Success -> Success'
+        Fail -> Fail' code
 ```
 test
 
@@ -529,16 +644,58 @@ ghci> 2 % 3 + 1 % 6
 repl
 
 ```hs
-https://stepik.org/lesson/4985/step/8?unit=1083
-TODO
+-- Реализуйте функцию `isSquare`
+-- проверяющую является ли фигура квадратом
+
+data Shape = Circle Double | Rectangle Double Double
+square :: Double -> Shape
+square a = Rectangle a a
+isSquare :: Shape -> Bool
+isSquare = undefined
+
+-- решение
+-- шейп надо проверить на "квадратность"
+-- шейп это сумма круга и прямоугольника, квадрат это прямоугольник с одинаковыми сторонами
+data Shape = Circle Double | Rectangle Double Double
+square :: Double -> Shape
+square a = Rectangle a a
+isSquare :: Shape -> Bool
+isSquare (Rectangle a b) = abs (a - b) <= delta where delta = 0.000001
+isSquare _ = False
+
+ghci> isSquare $ square 3.2
+True
 ```
 test
 
 ```hs
-https://stepik.org/lesson/4985/step/9?unit=1083
+{--
+Целое число можно представить как список битов со знаком
+Реализуйте функции сложения и умножения для таких целых чисел
+считая, что младшие биты идут в начале списка.
+Можно считать, что на вход не будут подаваться числа с ведущими нулями
+--}
+data Bit = Zero | One
+data Sign = Minus | Plus
+data Z = Z Sign [Bit]
+
+add :: Z -> Z -> Z
+add = undefined
+
+mul :: Z -> Z -> Z
+mul = undefined
+
+-- разбор
+add :: Z -> Z -> Z
+add = undefined
+-- на входе тип-произведение из типов Sign (сумма из двух вариантов) и списка Bit (сумма из двух вариантов)
+-- попытаемся реализовать требуемое через кодек в целые числа и банальные операции с целыми числами
+
+-- решение
 TODO
+
 ```
-test
+test [test-bitz](./chapter-4.2/test-bitz.hs)
 
 ### 4.2.10 ленивый пат.мат., `~` (irrefutable pattern)
 
