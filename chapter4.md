@@ -397,7 +397,7 @@ processData = m . doSomeWork
 ```
 test
 
-## chapter 4.2 Product types
+## chapter 4.2, Product types
 
 4.2 Типы произведений и сумм произведений
 https://stepik.org/lesson/4985/step/1?unit=1083
@@ -808,12 +808,207 @@ repl
 https://wiki.haskell.org/Lazy_pattern_match
 
 ```hs
-https://stepik.org/lesson/4985/step/11?unit=1083
+-- Пусть определена следующая функция
+
+foo :: Bool -> Int
+foo ~True = 1
+foo False = 0
+
+-- Что произойдет при вызове foo False?
+
+-- ответ:
+1
+-- почему? irrefutable pattern, созданный при помощи тильды `~`.
+-- вычисление пойдет по ветке на этом паттерне и редуцируется до `1`
+```
+test
+
+## chapter 4.3, Синтаксис записей
+
+https://stepik.org/lesson/5431/step/1?unit=1132
+
+- Метки полей
+- Использование синтаксиса записей
+- Синтаксис записей и сопоставление с образцом
+
+### 4.3.2 тип product, метки полей (tag), оператор амперсанд
+
+Как в Xaskell описать структуру данных с полями (как в ООП: `struct Person {name: String, age: Int, ...}`).
+Tuple? Неудобно.
+Как произведение? Да
+```hs
+-- пример 1, неудачный
+data Person = Person String String Int -- произведение имени, фамилии, возраста
+-- тип = конструктор данных
+
+-- зададим проекции типа, для удобства доступа
+firstName (Person x _ _) = x
+lastName (Person _ x _) = x
+age (Person _ _ x) = x
+
+-- пример 2, правильный, со специальным синтаксисом
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+    deriving (Show, Eq)
+-- для каждого поля задана специальная метка поля, по которой будет сгенерирован геттер (проекция)
+
+-- конструктор данных это функция трех параметров
+ghci> :t Person
+Person :: String -> String -> Int -> Person
+
+-- проекция (геттер) это функция одного параметра
+ghci> :t firstName
+firstName :: Person -> String
+
+ghci> john = Person "John" "Smith" 33
+ghci> age john
+33
+
+-- тайпкласс Show по умолчанию выводит запись конструктора данных, пример:
+ghci> john
+Person {firstName = "John", lastName = "Smith", age = 33}
+
+ghci> j = Person {firstName = "John", lastName = "Smith", age = 33}
+ghci> j
+Person {firstName = "John", lastName = "Smith", age = 33}
+
+ghci> j == john
+True
+
+-- т.е. создание структуры можно записать как
+john = Person "John" "Smith" 33
+-- так и
+john = Person {firstName = "John", lastName = "Smith", age = 33}
+-- при этом порядок следования полей не важен (в отличие от безымянного конструирования)
+john = Person {firstName = "John", age = 33, lastName = "Smith"}
+
+-- есть оператор "амперсанд" для имитации доступа в стиле ООП
+ghci> import Data.Function
+ghci> :i (&)
+(&) :: a -> (a -> b) -> b       -- Defined in ‘Data.Function’
+infixl 1 & -- левая ассоциативность означает возможность писать цепочки `so & si & field` для доступа к нижним уровням вложенности
+
+ghci> john & age
+33
+
+-- забавно, раньше этот оператор называли "оператор евро" в пику "оператор доллар"
+ghci> :i $
+($) :: (a -> b) -> a -> b       -- Defined in ‘GHC.Base’
+infixr 0 $
+-- понятно почему? ибо делает "наоборот", вернее делает flip $
+-- кроме того, ассоциативность у доллара правая а у "евро" левая
+
+{--
+цепочка применения
+x & h & g & f
+эквивалентена
+f $ g $ h $ x
+Что тут происходит: делает применение h-к-x, к полученному применяет g, к полученному применяет f
+Что в амперсандовой нотации можно прочитать как:
+скармливает х в аш, полученное скармливает в же, полученное скармливает в эф. Как пайплайн
+--}
+```
+repl
+
+```hs
+https://stepik.org/lesson/5431/step/3?unit=1132
 TODO
 
 ```
 test
 
+### 4.3.4 операции с именованными полями продуктов
+
+Что нам доступно при записи продукта с тегами:
+разные формы конструкторов, не полная инициализация, создание копии с модифицированным полем
+```hs
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+    deriving (Show, Eq)
+
+-- два разных вида создания переменной такого типа
+john = Person "John" "Smith" 33 -- только в таком порядке
+xavier = Person { age = 40, firstName = "Phideaux", lastName = "Xavier" } -- в любом порядке
+
+-- допустимо указывать не все поля при создании
+unknownBill = Person { firstName = "Bill" }
+-- в таком случае будет предупреждение
+ghci> unknownBill = Person { firstName = "Bill" }
+<interactive>:33:15: warning: [-Wmissing-fields]
+    • Fields of ‘Person’ not initialised:
+        lastName :: String
+        age :: Int
+    • In the expression: Person {firstName = "Bill"}
+      In an equation for ‘unknownBill’:
+          unknownBill = Person {firstName = "Bill"}
+
+-- переменная создалась, но работать с ней можно только обращаясь к инициализированному полю
+ghci> unknownBill 
+Person {firstName = "Bill", lastName = "*** Exception: <interactive>:33:15-43: Missing field in record construction lastName "
+
+ghci> unknownBill & firstName -- так нормально
+"Bill"
+
+-- создадим копию билла и сравним с оригиналом (спойлер: не сможем)
+ghci> unknownBill' = Person { firstName = "Bill" }
+<interactive>:36:16: warning: [-Wmissing-fields] ...
+-- облом, хотя они одинаковые. Доступ к неинициализированным полям роняет программу
+ghci> unknownBill == unknownBill'
+*** Exception: <interactive>:33:15-43: Missing field in record construction lastName
+
+-- как модифицировать такие записи
+updateAge :: Int -> Person -> Person
+updateAge newAge person = person { age = newAge } -- copy с новым значением поля
+-- будет создана копия персоны с новым значением возраста
+
+ghci> xavier & age
+40
+ghci> updateAge 42 xavier 
+Person {firstName = "Phideaux", lastName = "Xavier", age = 42}
+ghci> xavier & age
+40
+```
+repl
+
+```hs
+https://stepik.org/lesson/5431/step/5?unit=1132
+TODO
+
+```
+test
+
+### 4.3.6 пат.мат. для записей с тегами
+
+```hs
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+    deriving (Show, Eq)
+
+-- как написать ф. получения полного имени персоны
+name :: Person -> String
+name p =
+    firstName p ++ " " ++ lastName p
+
+-- можно это сделать через пат.мат.
+name (Person fn ln _) =
+    fn ++ " " ++ ln -- надо знать, на каких позициях какие поля. Надо перечислить все поля
+
+-- а можно выборочно по именам меток сделать пат.мат.
+name (Person { lastName = ln, firstName = fn }) =
+    fn ++ " " ++ ln -- перечисляем только то, что надо
+```
+repl
+
+```hs
+https://stepik.org/lesson/5431/step/7?unit=1132
+TODO
+
+```
+test
+
+```hs
+https://stepik.org/lesson/5431/step/8?unit=1132
+TODO
+
+```
+test
 
 
 
