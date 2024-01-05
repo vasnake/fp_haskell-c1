@@ -691,9 +691,56 @@ add = undefined
 -- на входе тип-произведение из типов Sign (сумма из двух вариантов) и списка Bit (сумма из двух вариантов)
 -- попытаемся реализовать требуемое через кодек в целые числа и банальные операции с целыми числами
 
--- решение
-TODO
+-- особенности
+{--
+Пустой список бит = 0
+"ведущих нулей не будет" = [0] не валидно.
+--}
 
+-- решение (альтернативное)
+import Data.List
+data Bit = Zero | One
+data Sign = Minus | Plus
+data Z = Z Sign [Bit]
+
+add :: Z -> Z -> Z
+add a b = toBinarySystem $ toDecimalSystem a + toDecimalSystem b
+
+mul :: Z -> Z -> Z
+mul a b = toBinarySystem $ toDecimalSystem a * toDecimalSystem b
+
+bitToInt :: Bit -> Int
+bitToInt One = 1
+bitToInt Zero = 0
+
+boolToBit :: Bool -> Bit
+boolToBit True = One
+boolToBit False = Zero
+
+toDecimalSystem :: Z -> Int
+toDecimalSystem (Z s bits) =
+    case s of
+        Plus -> x
+        Minus -> -x
+    where
+        x :: Int
+        x = foldr convert 0 (zip [0..] bits)
+
+        convert :: (Int, Bit) -> Int -> Int
+        convert (n, b) acc =
+            acc + bitToInt b * 2^n
+
+toBinarySystem :: Int -> Z
+toBinarySystem v = Z sign bits
+    where
+        sign :: Sign
+        sign = if v >= 0 then Plus else Minus
+        
+        bits :: [Bit]
+        bits = [ boolToBit v | v <- bitsRes ]
+
+        bitsRes :: [Bool]
+        bitsRes = unfoldr (\x -> if x == 0 then Nothing else Just (odd x, x `div` 2)) (abs v)
 ```
 test [test-bitz](./chapter-4.2/test-bitz.hs)
 
@@ -763,6 +810,7 @@ https://wiki.haskell.org/Lazy_pattern_match
 ```hs
 https://stepik.org/lesson/4985/step/11?unit=1083
 TODO
+
 ```
 test
 
