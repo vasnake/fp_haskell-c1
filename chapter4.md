@@ -823,7 +823,7 @@ foo False = 0
 ```
 test
 
-## chapter 4.3, Синтаксис записей
+## chapter 4.3, Синтаксис записей (record syntax)
 
 https://stepik.org/lesson/5431/step/1?unit=1132
 
@@ -885,12 +885,14 @@ john = Person {firstName = "John", age = 33, lastName = "Smith"}
 ghci> import Data.Function
 ghci> :i (&)
 (&) :: a -> (a -> b) -> b       -- Defined in ‘Data.Function’
-infixl 1 & -- левая ассоциативность означает возможность писать цепочки `so & si & field` для доступа к нижним уровням вложенности
+infixl 1 & -- левая ассоциативность означает
+-- возможность писать цепочки `so & si & field` для доступа к нижним уровням вложенности
 
 ghci> john & age
 33
 
 -- забавно, раньше этот оператор называли "оператор евро" в пику "оператор доллар"
+-- доллар: оператор "апплай" с пониженным приоритетом и правой ассоц.
 ghci> :i $
 ($) :: (a -> b) -> a -> b       -- Defined in ‘GHC.Base’
 infixr 0 $
@@ -910,11 +912,110 @@ f $ g $ h $ x
 repl
 
 ```hs
-https://stepik.org/lesson/5431/step/3?unit=1132
-TODO
+{--
+Определите тип записи, который хранит элементы лога
+Имя конструктора должно совпадать с именем типа,
+и запись должна содержать три поля
+- timestamp — время, когда произошло событие (типа UTCTime)
+- logLevel — уровень события (типа LogLevel)
+- message — сообщение об ошибке (типа String)
+
+Определите функцию `logLevelToString`
+возвращающую текстуальное представление типа `LogLevel`
+и функцию `logEntryToString`
+возвращающую текстуальное представление записи в виде
+`<время>: <уровень>: <сообщение>`
+Для преобразование типа `UTCTime` в строку используйте функцию `timeToString`
+--}
+import Data.Time.Clock
+import Data.Time.Format
+import System.Locale
+timeToString :: UTCTime -> String
+timeToString = formatTime defaultTimeLocale "%a %d %T"
+data LogLevel = Error | Warning | Info
+
+data LogEntry = undefined
+
+logLevelToString :: LogLevel -> String
+logLevelToString = undefined
+
+logEntryToString :: LogEntry -> String
+logEntryToString = undefined
+
+-- решение
+import Data.Time.Clock
+import Data.Time.Format
+import System.Locale
+import Data.List (intercalate)
+
+timeToString :: UTCTime -> String
+timeToString = formatTime defaultTimeLocale "%a %d %T"
+
+data LogLevel = Error | Warning | Info deriving Show
+
+data LogEntry = LogEntry { timestamp :: UTCTime, logLevel :: LogLevel, message :: String }
+
+logLevelToString :: LogLevel -> String
+logLevelToString = show
+
+logEntryToString :: LogEntry -> String
+logEntryToString le = intercalate ": " [t,l,m]
+                        where
+                            t = timeToString $ timestamp le
+                            l = logLevelToString $ logLevel le
+                            m = message le
+
+-- ------------------------------------------
+
+import Data.Time.Clock
+import Data.Time.Format
+import System.Locale
+
+timeToString :: UTCTime -> String
+timeToString = formatTime defaultTimeLocale "%a %d %T"
+
+data LogLevel = Error | Warning | Info deriving Show
+
+data LogEntry = LogEntry {
+    timestamp :: UTCTime,
+    logLevel  :: LogLevel,
+    message   :: String
+}
+
+logLevelToString :: LogLevel -> String
+logLevelToString = show
+
+logEntryToString :: LogEntry -> String
+logEntryToString log = concatMap ($ log) pattern where
+    pattern = [timeToString . timestamp, sep, logLevelToString . logLevel, sep, message]
+    sep = const ": "
+
+-- ------------------------------------------------
+
+import Data.Time.Clock
+import Data.Time.Format
+import System.Locale
+import Data.List (intersperse)
+
+timeToString :: UTCTime -> String
+timeToString = formatTime defaultTimeLocale "%a %d %T"
+
+data LogLevel = Error | Warning | Info deriving Show
+
+data LogEntry = LogEntry { timestamp :: UTCTime, logLevel :: LogLevel, message :: String }
+
+logLevelToString :: LogLevel -> String
+logLevelToString = show
+
+logEntryToString :: LogEntry -> String
+logEntryToString log =
+    concat $ intersperse ": " [ f log | f <- [time, level, message]]
+    where
+        time = timeToString . timestamp
+        level = logLevelToString . logLevel
 
 ```
-test
+test [logentry](./chapter-4.3/test-logentry.hs)
 
 ### 4.3.4 операции с именованными полями продуктов
 
@@ -969,9 +1070,23 @@ ghci> xavier & age
 repl
 
 ```hs
-https://stepik.org/lesson/5431/step/5?unit=1132
-TODO
+{--
+Определите функцию `updateLastName person1 person2`
+которая меняет фамилию `person2` на фамилию `person1`
+--}
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+updateLastName :: Person -> Person -> Person
+updateLastName = undefined
 
+-- решение
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+updateLastName :: Person -> Person -> Person
+updateLastName p1 p2 = p2 { lastName = lastName p1 }
+
+-- alternative
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+updateLastName :: Person -> Person -> Person
+updateLastName (Person {lastName = ln}) p2 = p2 {lastName = ln}
 ```
 test
 
@@ -997,18 +1112,67 @@ name (Person { lastName = ln, firstName = fn }) =
 repl
 
 ```hs
-https://stepik.org/lesson/5431/step/7?unit=1132
-TODO
+-- Допустим мы объявили тип
+data Shape = Circle Double | Rectangle Double Double
 
+-- Что произойдет при объявлении такой функции:
+isRectangle :: Shape -> Bool
+isRectangle Rectangle{} = True
+isRectangle _ = False
+
+-- решение: нормально скомпиляется и будет работать как ожидается (отличать прямоуг. от круга). Очевидно, параметры конструктора в
+-- фигурных скобках опциональны, вплоть до полного отсутствия параметров.
+-- Она компилируется и возвращает True, если на вход передается Rectangle, иначе она возвращает False
+:{
+data Shape = Circle Double | Rectangle Double Double
+isRectangle :: Shape -> Bool
+isRectangle Rectangle{} = True
+isRectangle _ = False
+:}
+ghci> isRectangle $ Rectangle 0 0
+True
+ghci> isRectangle $ Circle 0
+False
+
+ghci> isRectangle $ Rectangle{}
+<interactive>:20:15: warning: [-Wmissing-fields]     • Fields of ‘Rectangle’ not initialised ...
+True
 ```
 test
 
 ```hs
-https://stepik.org/lesson/5431/step/8?unit=1132
-TODO
+{--
+Определить функцию `abbrFirstName`
+которая сокращает имя до первой буквы с точкой
+то есть, если имя было "Ivan", то после применения этой функции оно превратится в "I."
+Однако, если имя было короче двух символов, то оно не меняется
+--}
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+abbrFirstName :: Person -> Person
+abbrFirstName p = undefined
 
+-- решение
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+abbrFirstName :: Person -> Person
+abbrFirstName p = p { firstName = abbr } where
+    abbr = if length fn < 2 then fn else head fn : "."
+    fn = firstName p
+
+-- можно оптимальнее, как-то так (не тестировал)
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+abbrFirstName :: Person -> Person
+abbrFirstName p@Person {firstName = fn} = if length fn < 2 then p else p { firstName = head fn : "." }
 ```
 test
+
+## chapter 4.4, Типы с параметрами
+
+https://stepik.org/lesson/5746/step/1?unit=1256
+- Типы, параметризованные переменной типа
+- Стандартные параметризованные типы
+- Виды (кайнды)
+- Строгий конструктор данных
+
 
 
 
