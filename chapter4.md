@@ -1182,13 +1182,14 @@ https://stepik.org/lesson/5746/step/1?unit=1256
 -- coords examples
 data CoordD = CoordD Double Double
 data CoordI = CoordI Int Int
+
 {--
 Вместо конкретики (инт, дабл), зададим параметр-полиморфный-тип aka переменная типа.
-Реализация будет через некоторые полиморфные интерфейсы (вероятно, Num) и нам без разницы, на этом уровне абстракции,
+Реализация будет через некоторые полиморфные интерфейсы (вероятно, тайпкласса Num) и нам без разницы, на этом уровне абстракции,
 что там "под капотом".
 
 Тип данных (параметризован переменной типа а) = конструктор данных (параметризован двумя значениями "типа а")
-Правильно: конструктор типов, параметризован `a` = конструктор данных, параметризован двумя значениями типа `a`
+Правильно так: конструктор типов, параметризован `a` = конструктор данных, параметризован двумя значениями типа `a`
 --}
 data Coord a = Coord a a
 {--
@@ -1202,19 +1203,107 @@ Coord (3::Int) (4::Int) :: Coord Int -- сконструировано выра�
 ghci> :t Coord
 Coord :: a -> a -> Coord a -- полиморфный конструктор, принимает два параметра типа `a`
 -- конструирует выражение типа `Coord a`
--- `Coord a` это тип, `Coord` 'это конструктор типов, еще говорят "функция над типами.
+-- `Coord a` это параметризованный тип, `Coord` 'это конструктор типов, еще говорят "функция над типами.
 ```
 repl
 
 ```hs
-https://stepik.org/lesson/5746/step/3?unit=1256
-TODO
+{--
+Реализуйте функции: `distance`
+считающую расстояние между двумя точками с вещественными координатами
+и `manhDistance`
+считающую манхэттенское расстояние между двумя точками с целочисленными координатами
+--}
+data Coord a = Coord a a
+
+distance :: Coord Double -> Coord Double -> Double
+distance = undefined
+
+manhDistance :: Coord Int -> Coord Int -> Int
+manhDistance = undefined
+
+-- решение
+
+-- расстояние между точками а и б на плоскости: let dist^2 = abx^2 + aby^2 in sqrt dist^2 where abx = a.x - b.x; aby = a.y - b.y
+-- манх. расстояние:  is a metric in which the distance between two points is the sum of the absolute differences of their Cartesian coordinates
+-- abs abx + abs aby where abx = a.x - b.x; aby = a.y - b.y
+
+data Coord a = Coord a a
+
+distance :: Coord Double -> Coord Double -> Double
+distance (Coord ax ay) (Coord bx by) = sqrt (abx^2 + aby^2) where
+    abx = ax - bx
+    aby = ay - by
+
+manhDistance :: Coord Int -> Coord Int -> Int
+manhDistance (Coord ax ay) (Coord bx by) = abs abx + abs aby where
+    abx = ax - bx
+    aby = ay - by
+
 ```
 test
 
 ```hs
-https://stepik.org/lesson/5746/step/4?unit=1256
-TODO
+{--
+Плоскость разбита на квадратные ячейки
+Стороны ячеек параллельны осям координат
+Координаты углов ячейки с координатой `(0,0)` имеют неотрицательные координаты (т.е. ячейка 0,0 находится в положительном квадранте плоскости)
+Один из углов этой ячейки имеет координату `(0,0)` (т.е. сетка начинается с 0)
+С ростом координат ячеек увеличиваются координаты точек внутри этих ячеек. (т.е. рассматриваем положительный квадрант)
+
+Реализуйте функции `getCenter`
+которая принимает координату ячейки и возвращает координату ее центра
+
+и функцию `getCell`
+которая принимает координату точки и возвращает номер ячейки в которой находится данная точка
+
+В качестве первого аргумента обе эти функции принимают ширину ячейки
+--}
+data Coord a = Coord a a
+
+getCenter :: Double -> Coord Int -> Coord Double
+getCenter = undefined
+
+getCell :: Double -> Coord Double -> Coord Int
+getCell = undefined
+
+-- решение
+-- Раз у нас положительный квадрант, все числа положительные и счет начинается с 0.
+-- Центр ячейки это два числа, х и у: (количество-ячеек * размер-ячейки - половина-размера-ячейки).
+-- Номер (координаты) ячейки это два числа, х и у: (целая-часть размер-проекции-вектора / размер-ячейки)
+
+data Coord a = Coord a a
+
+getCenter :: Double -> Coord Int -> Coord Double
+getCenter size (Coord x y) = Coord (center x) (center y) where
+    center n = (size * fromIntegral (n + 1)) - (size / 2) -- first cell has number 0
+
+getCell :: Double -> Coord Double -> Coord Int
+getCell size (Coord x y) = Coord (cell x) (cell y) where
+    cell proj = floor (proj / size)
+
+-- alternative
+
+import Data.Function
+data Coord a = Coord a a
+
+getCenter :: Double -> Coord Int -> Coord Double
+getCenter w (Coord x y) = (Coord `on` ((*w) . (+0.5) . fromIntegral)) x y
+
+getCell :: Double -> Coord Double -> Coord Int
+getCell w (Coord x y) = (Coord `on` (floor . (/ w))) x y
+
+-- пояснения
+ghci> :i on
+on :: (b -> b -> c) -> (a -> b) -> a -> a -> c -- Defined in ‘Data.Function’
+infixl 0 `on`
+-- левоассоциативный оператор с низшим приоритетом
+-- x on y -- означает: ф. b -> b -> c 'on' ф. a -> b применить к двум a, чтобы получить один c
+-- справа трансформер из a -> b, он обрабатывает входные аргументы функции x 'on' y.
+-- слева трансформер из двух b в один c, он дает финальный результат.
+(Coord `on` (floor . (/ w))) x y -- означает: к входным х и у применить деление на дабл-ю и округление-вниз
+-- (оператор . это композиция ака декоратор).
+-- потом НА этом применить конструктор Coord. Получим выходной Coord на координатах разделенных-на-ширину-и-округленных-вниз
 ```
 test
 
@@ -1317,28 +1406,201 @@ roots a b c
 repl
 
 ```hs
-https://stepik.org/lesson/5746/step/6?unit=1256
-TODO
+{--
+Реализуйте функцию, которая ищет в строке первое вхождение символа
+который является цифрой
+возвращает `Nothing`, если в строке нет цифр
+--}
+import Data.Char(isDigit)
+
+findDigit :: [Char] -> Maybe Char
+findDigit = undefined
+
+-- решение
+
+import Data.Char(isDigit)
+findDigit :: [Char] -> Maybe Char
+findDigit [] = Nothing
+findDigit (x:xs) = if isDigit x then Just x else findDigit xs
+-- findDigit = Data.List.find isDigit
 ```
 test
 
 ```hs
-https://stepik.org/lesson/5746/step/7?unit=1256
-TODO
+{--
+Реализуйте функцию `findDigitOrX`
+использующую функцию `findDigit` -- реализовывать не нужно
+
+`findDigitOrX` должна находить цифру в строке
+а если в строке цифр нет, то она должна возвращать символ 'X'
+
+Используйте конструкцию `case`
+--}
+import Data.Char(isDigit)
+findDigit :: [Char] -> Maybe Char
+
+findDigitOrX :: [Char] -> Char
+findDigitOrX = undefined
+
+-- решение: нужна конвертация Maybe в символ
+
+import Data.Char(isDigit)
+findDigit :: [Char] -> Maybe Char
+
+findDigitOrX :: [Char] -> Char
+findDigitOrX = decode . findDigit where -- без case of
+    decode Nothing = 'X'
+    decode (Just c) = c
+
+-- case of
+
+import Data.Char(isDigit)
+findDigit :: [Char] -> Maybe Char
+
+findDigitOrX :: [Char] -> Char
+findDigitOrX s = case findDigit s of
+    Nothing     -> 'X'
+    (Just c)    -> c
+
 ```
 test
 
 ```hs
-https://stepik.org/lesson/5746/step/8?unit=1256
-TODO
+{--
+`Maybe` можно рассматривать как простой контейнер
+например, как список длины 0 или 1
+
+Реализовать функции `maybeToList` и `listToMaybe`
+преобразующие `Maybe a` в `[a]`
+
+и наоборот (вторая функция отбрасывает все элементы списка, кроме первого
+--}
+maybeToList :: Maybe a -> [a]
+maybeToList = undefined
+
+listToMaybe :: [a] -> Maybe a
+listToMaybe = undefined
+
+-- решение
+
+maybeToList :: Maybe a -> [a]
+maybeToList Nothing = []
+maybeToList (Just x) = [x]
+
+listToMaybe :: [a] -> Maybe a
+listToMaybe [] = Nothing
+listToMaybe (x:_) = Just x
+
+-- альтернатива
+
+maybeToList :: Maybe a -> [a]
+maybeToList = maybe [] (:[]) -- default value = [], function f=(:[]), parameter Maybe a: if Nothing -> default, otherwise -> f a
+
+listToMaybe :: [a] -> Maybe a
+listToMaybe = foldr ((Just .) . const) Nothing -- на пустом = Ничего, на списке = Только первый-элемент -- работает на бесконечности
+
 ```
 test
 
 ```hs
-https://stepik.org/lesson/5746/step/9?unit=1256
-TODO
+{--
+Реализуйте функцию `parsePerson`
+которая разбирает строки и возвращает либо результат типа `Person`, либо ошибку типа `Error`
+
+`firstName = John\nlastName = Connor\nage = 30`
+
+Строка, которая подается на вход, должна разбивать по символу '\n' на список строк каждая из которых имеет вид `X = Y`.
+Если входная строка не имеет указанный вид, то функция должна возвращать `ParsingError`
+
+Если указаны не все поля, то возвращается `IncompleteDataError`
+
+Если в поле `age` указано не число, то возвращается `IncorrectDataError str`, где `str` — содержимое поля `age`
+
+Если в строке присутствуют лишние поля, то они игнорируются
+--}
+data Error = ParsingError | IncompleteDataError | IncorrectDataError String
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+
+parsePerson :: String -> Either Error Person
+parsePerson = undefined
+
+-- решение
+-- лишние поля: не ошибка, недостаточно полей: ошибка
+-- неправильный тип возраста: ошибка
+-- строка разбивается по `\n` в список строк. Каждая строка в списке разбивается по `=` на пару (имя, значение)
+-- если строка не разбивается по ` = ` то это ошибка
+-- из трех пар по именам (firstName, lastName, age) собирается запись Person
+-- необходимо учесть возможный порядок возникновения ошибок: сначала возможна ParsingError, если прошли, то возможна IncompleteDataError, ...
+
+import Data.List (stripPrefix)
+import Control.Arrow (first)
+import Data.Maybe (isNothing, fromJust)
+import Text.Read ( readMaybe )
+
+-- https://hackage.haskell.org/package/extra-1.7.14/docs/src/Data.List.Extra.html#stripInfix
+stripInfix :: Eq a => [a] -> [a] -> Maybe ([a], [a])
+stripInfix needle haystack | Just rest <- stripPrefix needle haystack = Just ([], rest)
+stripInfix needle [] = Nothing
+stripInfix needle (x:xs) = case stripInfix needle xs of
+  Just (prefix, next) -> Just (x:prefix, next)
+  Nothing -> Nothing
+
+getKv :: [(String, String)] -> String -> Maybe String
+getKv [] _ = Nothing
+getKv ((k,v):kvs) key = if k == key then Just v else getKv kvs key
+
+data Error = ParsingError | IncompleteDataError | IncorrectDataError String
+
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+
+parsePerson :: String -> Either Error Person
+parsePerson s = let
+    mkvs = map (stripInfix " = ") $ lines s
+    kvs = map fromJust mkvs
+    get = getKv kvs
+  in if any isNothing mkvs then Left ParsingError
+     else case (get "firstName", get "lastName", get "age") of
+       (Just fn, Just ln, Just ageStr) ->
+         case readMaybe ageStr of
+           Nothing -> Left $ IncorrectDataError ageStr
+           Just ageVal -> Right Person {firstName=fn, lastName=ln, age=ageVal}
+       _ -> Left IncompleteDataError
+
+----------------------------------------------------------------
+
+import Data.List
+import Data.Maybe
+import Text.Read ( readMaybe )
+
+data Error = ParsingError | IncompleteDataError | IncorrectDataError String
+
+data Person = Person { firstName :: String, lastName :: String, age :: Int }
+
+trim :: String -> String
+trim = f . f
+   where f str = reverse $ Data.List.dropWhile (==' ') str
+
+splitToPairs :: [String] -> [(String, String)]
+splitToPairs [] = []
+splitToPairs (x:xs) = (trim name, trim (if "" == value then [] else tail value) ): splitToPairs xs
+    where (name, value) = break (=='=') x
+
+parsePerson :: String -> Either Error Person
+parsePerson txt 
+    | values == []                = Left IncompleteDataError
+    | any ((=="").snd) values     = Left ParsingError
+    | any (==Nothing) [fn, ln, a] = Left IncompleteDataError
+    | age' == Nothing             = Left (IncorrectDataError $ fromJust a)
+    | otherwise         = Right (Person {firstName = fromJust fn, lastName = fromJust ln, age = fromJust age'})
+    where
+        values = splitToPairs $ lines txt
+        fn     = lookup "firstName" values
+        ln     = lookup "lastName" values
+        a      = lookup "age" values
+        age'   = readMaybe (fromJust a) :: Maybe Int
+
 ```
-test
+test [parse_person.hs](./chapter-4.4/test-parse_person.hs)
 
 ### 4.4.10 kind (vs type)
 
@@ -1505,8 +1767,25 @@ data Ratio a = !a :% !a
 repl
 
 ```hs
-https://stepik.org/lesson/5746/step/15?unit=1256
-TODO
+-- Допустим тип `Coord` определен следующим образом
+data Coord a = Coord a !a -- ленивый первый, строгий второй параметр, нормализуется в конструкторе (WHNF)
+
+-- Пусть определены следующие функции
+getX :: Coord a -> a
+getX (Coord x _) = x -- второй параметр игнор, возвращ. первый, форсированный до WHNF
+
+getY :: Coord a -> a
+getY (Coord _ y) = y -- второй параметр пат.мат. до WHNF. возвр. второй
+
+-- Какие из следующих вызовов  вернут число 3?
+getY (Coord 3 7)                -- нет, второй 7
+getX (Coord 3 3)                -- да, первый 3
+getX (Coord undefined 3)        -- нет, сломается на пат.мат.
+getX (Coord undefined undefined) -- нет, сломается на пат.мат.
+getY (Coord undefined 3)        -- да, второй 3
+getY undefined                  -- нет, полустрогий конструктор сломается
+getY (Coord 3 undefined)        -- нет, строгий второй сломается
+getX (Coord 3 undefined)        -- нет, строгий второй сломается
 ```
 test
 
