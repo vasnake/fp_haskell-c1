@@ -1823,27 +1823,27 @@ https://stepik.org/lesson/7009/step/1?unit=1472
 
 По аналогии с рекурсивным определением функции (вызов ее самой в правой части уравнения),
 могут быть определены типы данных.
-В конструкторе данных можно вызывать конструктор этого типа. Рекурсивное определение конструктора (это просто функция).
+В конструкторе данных можно сослаться на конструктор типа (правая часть может ссылаться на левую).
 
-Список: это рекурсивный тип данных, два констуктора.
+Пример: список, это рекурсивный тип данных, два констуктора.
 ```hs
--- встроенный тип, без Большой буквы в названии
--- два конструктора, второй использует рекурсию для указания, что в конструктор надо дать два параметра: голову и список
-data [] a = [] | a : ([] a) -- в префиксном стиле
-data [a] = [] | a : [a] -- в инфиксном стиле
+-- как можно было бы самому определить список: голова и хвост
+-- не встроенный тип а пользовательский
+data List a = Nil | Cons a (List a) -- тип-данных-сумма: пустой список или голова и список
+-- `Cons a (List a)` -- это конструктор данных, принимающий два параметра, первый типа `a` и второй типа `List a`
 
--- более традиционная запись, не встроенный тип а пользовательский
-data List a = Nil | Cons a (List a) -- пустой список или голова и список
-
-Cons 'c' Nil -- список Char из одного элемента
+Cons 'c' Nil -- список Char из одного элемента (два параметра, чар и список)
 let bc = Cons 'b' (Cons 'c' Nil) -- список Char из двух элементов
 Cons 'a' bc -- список из трех элементов
+
+-- встроенный тип, без Большой буквы в названии, выглядит так же
+-- два конструктора, второй использует рекурсию
+data [] a = [] | a : ([] a) -- в префиксном стиле
+data [a] = [] | a : [a] -- в инфиксном стиле
 ```
 repl
 
 ```hs
-https://stepik.org/lesson/7009/step/3?unit=1472
-TODO
 {--
 Тип `List`, определенный ниже, эквивалентен определению списков из стандартной библиотеки
 в том смысле, что существуют взаимно обратные функции, преобразующие `List` a в `[a]` и обратно
@@ -1855,12 +1855,20 @@ fromList :: List a -> [a]
 fromList = undefined
 toList :: [a] -> List a
 toList = undefined
+
+-- решение: говорим рекурсия подразумеваем списки (и наоборот)
+data List a = Nil | Cons a (List a)
+
+fromList :: List a -> [a]
+fromList Nil = []
+fromList (Cons x xs) = x : fromList xs
+
+toList :: [a] -> List a
+toList = foldr Cons Nil -- foldr :: (elem :: a -> acc :: b -> result :: b) -> (ini :: b) -> list[a] -> (result :: b)
 ```
 test
 
 ```hs
-https://stepik.org/lesson/7009/step/4?unit=1472
-TODO
 {--
 Рассмотрим еще один пример рекурсивного типа данных
 data Nat = Zero | Suc Nat
@@ -1885,12 +1893,57 @@ mul :: Nat -> Nat -> Nat
 mul = undefined
 fac :: Nat -> Nat
 fac = undefined
+
+-- решение: подозреваю, что ожидается реализация `toNat :: Integer -> Nat` и уже через нее операции с натами.
+data Nat = Zero | Suc Nat
+
+fromNat :: Nat -> Integer
+fromNat Zero = 0
+fromNat (Suc n) = fromNat n + 1
+
+add :: Nat -> Nat -> Nat
+add a b = toNat (fromNat a + fromNat b)
+
+mul :: Nat -> Nat -> Nat
+mul a b = toNat (fromNat a * fromNat b)
+
+fac :: Nat -> Nat
+fac = toNat . factorial . fromNat where
+    factorial 0 = 1
+    factorial n = product [1 .. n]
+
+toNat :: Integer -> Nat
+toNat 0 = Zero
+toNat n = Suc $ toNat (n - 1)
+
+-- alternative
+data Nat = Zero | Suc Nat deriving Show
+
+fromNat :: Nat -> Integer
+fromNat Zero    = 0
+fromNat (Suc n) = fromNat n + 1
+
+add :: Nat -> Nat -> Nat
+add a Zero       = a
+add Zero a       = a
+add a (Suc Zero) = add (Suc a) Zero
+add a (Suc b)    = add (Suc a) b
+
+mul :: Nat -> Nat -> Nat
+mul Zero _       = Zero
+mul _ Zero       = Zero
+mul (Suc Zero) a = a
+mul a (Suc Zero) = a
+mul (Suc a) b    = add (mul a b) b
+
+fac :: Nat -> Nat
+fac Zero       = Suc Zero
+fac (Suc Zero) = Suc Zero
+fac (Suc a)    = mul (Suc a) (fac a)
 ```
 test
 
 ```hs
-https://stepik.org/lesson/7009/step/5?unit=1472
-TODO
 {--
 Тип бинарных деревьев можно описать следующим образом:
 data Tree a = Leaf a | Node (Tree a) (Tree a)
@@ -1908,12 +1961,23 @@ height :: Tree a -> Int
 height = undefined
 size :: Tree a -> Int
 size = undefined
+
+-- решение
+-- имеем тип сумма, два конструктора: пат.мат. на два базовых варианта и рекурсию
+-- высота: количество узлов в самой длиной ветке (листья не считаем, только Node)
+data Tree a = Leaf a | Node (Tree a) (Tree a)
+
+height :: Tree a -> Int
+height (Leaf _) = 0
+height (Node left right) = 1 + max (height left) (height right)
+
+size :: Tree a -> Int
+size (Leaf _) = 1
+size (Node left right) = 1 + size left + size right
 ```
 test
 
 ```hs
-https://stepik.org/lesson/7009/step/6?unit=1472
-TODO
 {--
 Теперь нам нужно написать функцию `avg`
 которая считает среднее арифметическое всех значений в дереве
@@ -1932,6 +1996,33 @@ avg t =
   where
     go :: Tree Int -> (Int,Int)
     go = undefined
+
+-- решение
+data Tree a = Leaf a | Node (Tree a) (Tree a)
+
+avg :: Tree Int -> Int
+avg t =
+    let (c, s) = go t -- (count, sum)
+    in s `div` c
+  where
+    go :: Tree Int -> (Int, Int) -- (count, sum) -- количество листьев и сумму значений в них
+    go (Leaf n) = (1, n)
+    go (Node left right) = (cL + cR, sL + sR) where
+        (cL, sL) = go left
+        (cR, sR) = go right
+
+-- alternative
+import Data.Function
+data Tree a = Leaf a | Node (Tree a) (Tree a)
+-- в данном решении пара заменена списком и обработка значений делается операциями над списками
+avg :: Tree Int -> Int
+avg t = foldr1 div $ go t -- foldr1 func list: 1 / (2 / 3), -- [sum, count] -> sum / count
+  where
+    go :: Tree Int -> [Int] -- на выходе не пара а список из двух значений [sum, count]
+    go (Leaf x)   = [x, 1] -- [value, count]
+    go (Node l r) = on (zipWith (+)) (go) l r -- on sum-elems-of-two-lists transform-tree-tolist leftT rightT
+    -- списки это пары, значения пар суммируются
+
 ```
 test
 
@@ -1977,8 +2068,6 @@ repl
 - https://github.com/ghc/ghc/blob/58bbb40ba23860df2ede1275493ef32ba69a2083/libraries/base/GHC/Num.hs#L67
 
 ```hs
-https://stepik.org/lesson/7009/step/8?unit=1472
-TODO
 {--
 Исправьте определение функции `expand`
 так, чтобы она, используя дистрибутивность
@@ -2005,8 +2094,145 @@ expand (e1 :+: e2) = expand e1 :+: expand e2
 expand (e1 :*: e2) = expand e1 :*: expand e2
 expand e = e
 
+-- решение
+-- надо раскладывать в "суммой произведений числовых значений"
+-- т.е. у нас есть три конструктора, из них два: составные выражения
+-- надо пересобрать так, чтобы остались только суммы-произведений
+
+infixl 6 :+:
+infixl 7 :*:
+data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
+    deriving (Show, Eq)
+
+expand :: Expr -> Expr
+expand = foldr1 (:+:) . expandList
+  where
+    expandList :: Expr -> [Expr] -- разобрать в список слагаемых
+    expandList (Val i)   = [Val i]
+    expandList (l :+: r) = expandList l ++ expandList r
+    expandList (l :*: r) = [ e1 :*: e2 | e1 <- expandList l, e2 <- expandList r] -- самая тютелька: дистрибутивность умножения
+    -- для каждого слагаемого из левой части умножить его на слагаемое из правой
+
+--------------------------------------------------------------------------
+
+infixl 6 :+:
+infixl 7 :*:
+data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
+    deriving (Show, Eq)
+
+expand :: Expr -> Expr
+expand (e1 :+: e2) = expand e1 :+: expand e2
+expand (e1 :*: e2) = f $ expand e1 :*: expand e2 where
+  f ((e1 :+: e2) :*: e) = f (e1 :*: e) :+: f (e2 :*: e)
+  f (e :*: (e1 :+: e2)) = f (e :*: e1) :+: f (e :*: e2)
+  f e = e
+expand e = e
+
+------------------------------------------------------------------------
+
+infixl 6 :+:
+infixl 7 :*:
+data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
+    deriving (Show, Eq)
+
+expand :: Expr -> Expr
+expand ((e1 :+: e2) :*: e) = expand (e1 :*: e) :+: expand (e2 :*: e)
+expand (e :*: (e1 :+: e2)) = expand (e :*: e1) :+: expand (e :*: e2)
+expand (e1 :+: e2) = expand e1 :+: expand e2
+expand (e1 :*: e2) = (if (x == e1 && y == e2) then id else expand) (x :*: y)
+    where x = expand e1
+          y = expand e2
+expand e = e
+
+--------------------------------------------------------------------
+
+infixl 6 :+:
+infixl 7 :*:
+data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
+    deriving (Show, Eq)
+
+expand :: Expr -> Expr
+expand (e1 :+: e2) = expand e1 :+: expand e2
+expand (e1 :*: e2) = mul (expand e1)  (expand e2)
+expand e = e
+
+mul e (e1 :+: e2) = mul e e1 :+: mul e e2
+mul (e1 :+: e2) e = mul e1 e :+: mul e2 e
+mul e1 e2 = e1 :*: e2
+
+------------------------------------------------------------------
+
+infixl 6 :+:
+infixl 7 :*:
+data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
+    deriving (Show, Eq)
+
+expand :: Expr -> Expr
+expand ((e1 :+: e2) :*: e) = expand (e1 :*: e) :+: expand (e2 :*: e)
+expand (e :*: (e1 :+: e2)) = expand (e :*: e1) :+: expand (e :*: e2)
+expand (e1 :+: e2) = expand e1 :+: expand e2
+expand e@(e1 :*: e2) | expandOnlyMul e = e
+                     | otherwise = expand (expand e1 :*: expand e2)
+expand e = e
+
+expandOnlyMul :: Expr -> Bool
+expandOnlyMul (e1 :+: e2) = False
+expandOnlyMul (e1 :*: e2) = expandOnlyMul e1 && expandOnlyMul e2
+expandOnlyMul _ = True
+
+--------------------------------------------------------------------
+
+infixl 6 :+:
+infixl 7 :*:
+data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
+    deriving (Show, Eq)
+
+expand' :: Expr -> Expr
+expand' ((e1 :+: e2) :*: e) = expand' e1 :*: expand' e :+: expand' e2 :*: expand' e
+expand' (e :*: (e1 :+: e2)) = expand' e :*: expand' e1 :+: expand' e :*: expand' e2
+expand' (e1 :+: e2) = expand' e1 :+: expand' e2
+expand' (e1 :*: e2) = expand' e1 :*: expand' e2
+expand' e = e
+
+expand a | a == expand' a = a
+         | otherwise      = expand $ expand' a
+
+---------------------------------------------------------------------
+
+infixl 6 :+:
+infixl 7 :*:
+data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
+    deriving (Show, Eq)
+
+expand :: Expr -> Expr
+expand = fix go
+  where
+    go ((e1 :+: e2) :*: e) = (expand e1 :*: expand e :+: expand e2 :*: expand e)
+    go (e :*: (e1 :+: e2)) = (expand e :*: expand e1 :+: expand e :*: expand e2)
+    go (e1 :+: e2)         = expand e1 :+: expand e2
+    go (e1 :*: e2)         = expand e1 :*: expand e2
+    go e                   = e
+
+fix :: (Eq a) => (a -> a) -> a -> a
+fix f x = let x' = f x in if x' == x then x else fix f x'
+
+----------------------------------------------------------------
+
+infixl 6 :+:
+infixl 7 :*:
+data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
+    deriving (Show, Eq)
+
+expand :: Expr -> Expr
+expand ((e1 :+: e2) :*: e) = expand (e1 :*: e) :+: expand (e2 :*: e)
+expand (e :*: (e1 :+: e2)) = expand (e :*: e1) :+: expand (e :*: e2)
+expand (e1 :+: e2) = expand e1 :+: expand e2
+expand (e1 :*: e2) = if a == e1 :*: e2 then a else expand a where
+    a = (expand e1 :*: expand e2)
+expand e = e
+
 ```
-test
+test [test-expr](./chapter-4.5/test-expr.hs)
 
 
 

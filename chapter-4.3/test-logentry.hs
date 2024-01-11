@@ -19,6 +19,7 @@ module LogEntry where
 import Data.Time.Clock
 import Data.Time.Format
 -- import System.Locale
+-- import Data.Function
 
 timeToString :: UTCTime -> String
 timeToString = formatTime defaultTimeLocale "%a %d %T"
