@@ -1,4 +1,6 @@
 module Expr where
+import Prelude hiding (Monoid, mappend, mempty)
+
 {--
 Исправьте определение функции `expand`
 так, чтобы она, используя дистрибутивность

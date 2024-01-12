@@ -2234,6 +2234,543 @@ expand e = e
 ```
 test [test-expr](./chapter-4.5/test-expr.hs)
 
+## chapter 4.6, Синонимы и обертки для типов
 
+https://stepik.org/lesson/7602/step/1?unit=1473
+
+- Синонимы типа
+- Объявление newtype
+- Класс типов Monoid
+- Прочие моноиды
+- Эндоморфизмы как моноиды
+
+### 4.6.2 type keyword, алиас типа
+
+Для удобства,
+как задать краткий синоним сложного конструктора типов: ключевое слово `type`.
+Важно: для алиаса остаются доступны инстансы тайпклассов от оригинала.
+```hs
+-- Пример: объявлен синоним `String` для типа (конструктора типа) `[Char]`
+type String = [Char]
+
+-- теперь алиас можно использовать вместо оригинала
+allUpper :: String -> Bool
+allUpper = all isUpper
+
+-- кастомные синонимы делаются также
+type IntegerList = [Integer]
+
+-- пример использования
+sumSquares :: IntegerList -> Integer
+sumSquares = foldr1 (+) . map (^2)
+
+-- все существующие реализации тайпклассов для оригинального типа остаются доступны для алиаса
+
+-- параметризованные синонимы типов: возможно, пример: двух-параметрический оператор над типами
+type AssocList k v = [(k, v)] -- тип: список пар, параметризован двумя параметрами
+-- отдельно задан тип "ключа" и отдельно тип "значения"
+
+-- пример использования
+lookup :: (Eq k) => k -> AssocList k v -> Maybe v
+lookup _ [] = Nothing
+lookup key ((k, v) : pairs)
+    | key == k  = Just v
+    | otherwise = lookup key pairs
+
+-- рассмотрим частичное применение параметризованных синонимов
+-- partial apply
+
+-- для примера возьмем коллекцию-мапку
+import qualified Data.Map as Map -- упорядоченная по ключам коллекция пар 
+-- https://hoogle.haskell.org/?hoogle=Data.Map&scope=set%3Ahaskell-platform
+
+-- частично примененный конструктор типа, получили "тип" (алиас) с одним параметром (второй связан с Int)
+type IntMap = Map.Map Int -- сократили три слова в одно, удобно
+-- мапка, где ключи всегда Int
+
+ghci> :k Map.Map
+Map.Map :: * -> * -> * -- две стрелочи: два параметра конструктора типов
+
+ghci> :k IntMap
+IntMap :: * -> * -- одна стрелочка: один параметр конструктора типов
+```
+repl
+
+extra (comments)
+```hs
+newtype Name = Name String
+newtype Email = Email String
+
+showNameEmail :: Name -> Email -> String
+showNameEmail (Name name) (Email email) = "name: " ++ name ++ ", email: " ++ email
+
+n = Name "Andrey"
+e = Email "someemail@somewhere.org"
+showNameEmail n e
+
+-- https://wiki.haskell.org/Phantom_type
+-- вариант с фантомными типами выглядит лучше из за возможности добавить информацию о валидации на уровне типов
+
+newtype TextFld a = TextFld String
+data Name
+data Email
+
+showNameEmail :: TextFld Name -> TextFld Email -> String
+showNameEmail (TextFld name) (TextFld email) = "name: " ++ name ++ ", email: " ++ email
+
+n = TextFld "Andrey" :: TextFld Name
+e = TextFld "someemail@somewhere.org" :: TextFld Email
+showNameEmail n e
+
+{--
+ экспортируя только функцию-конструктор textFld, 
+ мы получаем ситуацию в которой пользователь не может создать валидированный тип без обращения к функциям библиотеки
+--}
+
+newtype TextFld a b = TextFld { getText::String } deriving Show
+
+data Validated
+data Unvalidated
+
+data Name
+data Email
+
+textFld :: String -> TextFld a Unvalidated
+textFld text = TextFld text
+
+showNameEmail :: TextFld Name a -> TextFld Email a -> String
+showNameEmail (TextFld name) (TextFld email) = "name: " ++ name ++ ", email: " ++ email
+
+sanitize :: TextFld a Unvalidated -> TextFld a Validated
+sanitize (TextFld text) = TextFld (filter isAlphaNum text)
+
+n = textFld "Andrey" :: TextFld Name Unvalidated
+e = TextFld "someemail@somewhere.org" :: TextFld Email Unvalidated
+```
+extra
+
+```hs
+-- Пусть синоним типа `Endo` определен следующим образом
+type Endo a = a -> a -- эндоморфизм
+
+-- Выберите из списка типы, эквивалентные
+Endo (Endo Int) -- эндоморфизм эндоморфизмов
+
+-- решение
+Endo Int = (Int -> Int) -- функция из инта-в-инт, эндоморфизм интов
+
+Endo (Endo Int) = (Int -> Int) -> (Int -> Int) -- функция берет функцию-из-инта-в-инт и возвращает функцию-из-инта-в-инт
+-- эндоморфизм функций (эндоморфизмов) над интами
+
+-- левые скобки раскрыть нельзя, на входе всегда функция.
+-- результат применения этой функции можно применить либо к двум аргументам, либо (по очереди) к одному и второму
+(Int -> Int) -> (Int -> Int)
+(Int -> Int) -> Int -> Int
+```
+test
+
+### 4.6.4 newtype keyword
+
+Если `type` это алиас типа (алиас типа `=` конструктор типа),
+то `newtype` это враппер "дизайн-тайм" над типом с единственным конструктором данных (враппер `=` конструктор данных).
+При этом, конструктор данных валидный `iff` у него один параметр.
+
+В рантайме все `newtype` развернуты в свои определения.
+Если у типа более одного конструктора, то в `newtype` его не завернуть.
+Если у конструктора более одного параметра или нет параметров, то в `newtype` его не завернуть.
+
+`newtype` это псевдо-тип (эфемерный тип) для единственного конструктора данных с единственным параметром.
+
+Для `newtype` отбрасываются все существующие инстансы тайпклассов для завернутого типа (для `type` сохраняются).
+Т.е. мы можем (хотим) определить свою реализацию тайпкласса для некоторого типа, поэтому используем `newtype` для этого типа.
+
+Это как взять существующий тип и сказать: нет, вот новый тип.
+Не смотрите, что под капотом китайский мотор, это русский "москвич".
+
+Поведние похоже на таковое при определении типа с `data`, но есть отличия:
+ньютайп более ленив и гарантирует (ровно один конструктор с ровно одним параметром)
+
+```hs
+-- обертка = конструктор
+newtype IntList = IList [Int] -- определили список интов как новый тип, с потерей всех тайпклассов для списка интов
+let example = IList [1,2,3]
+-- теперь нам надо самостоятельно определять реализацию (инстансы) тайпклассов, например: Show
+ghci> example 
+<interactive>:7:1: error:    • No instance for (Show IntList) arising from a use of ‘print’
+
+-- определили реализацию тайпкласса
+newtype IntList = IList [Int] deriving Show
+ghci> example
+IList [1,2,3]
+
+-- newtype vs data, с первого взгляда одинаковое поведение
+data IntList = IList [Int] deriving Show
+{--
+1) `newtype` гарантированно имеет ровно один конструктор с ровно одним параметром:
+в рантайме можно избавиться от обертки.
+`data` конструктор может быть не один, с разным количеством параметров.
+Конструкторы нужны в пат.мат. и они нужны в рантайм.
+
+2) newtype типы более ленивы чем data типы.
+--}
+
+-- иллюстрация большей ленивости
+data IntList = IList [Int] deriving Show
+ignore :: IntList -> String
+ignore (IList _) = "Hello" -- форсирование вычисления аргумента
+
+ghci> ignore undefined -- дата форсировала вычисление андефайнед в пат.мат.
+"*** Exception: Prelude.undefined ... "
+
+newtype IntList = IList [Int] deriving Show
+ignore :: IntList -> String
+ignore (IList _) = "Hello" -- нет форсирования вычисления аргумента, компилятор знает про гарантию одного одно-параметрического конструктора
+
+ghci> ignore undefined -- а ньютайп выкинул обертку и не стал форсировать андефайнед
+"Hello"
+
+-- примеры
+
+-- параметризованный ньютайп Id: прозрачный враппер
+-- можем использовать параметризацю ньютайпа, можем использовать метки полей
+newtype Identity a = Identity { runIdentity :: a } deriving (Eq, Ord)
+
+ghci> :kind Identity 
+Identity :: * -> * -- кайнд конструктора типа: одно-параметрический тип
+
+ghci> :type Identity 
+Identity :: a -> Identity a -- тип конструктора типа: одно-параметрическая ф.
+
+ghci> :t runIdentity 
+runIdentity :: Identity a -> a -- тип геттера: из "коробочки-с-а" в "просто а"
+```
+repl
+
+```hs
+-- Выберите корректные объявления типов
+
+newtype A a b = A a b -- нет, два параметра
+newtype A a = A a -- да один параметр
+newtype A = A A A -- нет, два параметра
+newtype A a b = A a -- да, один параметр
+newtype A = A -- нет, нет параметра
+newtype A a = A a a -- нет, два параметра
+newtype A = A A -- да, один параметр
+newtype A a b = A b -- да, один параметр
+newtype A a = A -- нет, нет параметров
+newtype A = A a  -- нет, свободный параметр (нет в скоупе)
+
+-- ньютайп это эфемерный враппер с одним конструктором данных у которого один параметр
+
+```
+test
+
+### 4.6.6 type-class Monoid
+
+Есть тайп-класс, для реализаций которого часто используется keyword `newtype`:
+это моноид (нейтральный элемент и операция склеивания двух значений в моноиде).
+
+Множество и заданная на нём Ассоциативная Бинарная Операция (с нейтральным элементом).
+```hs
+class Monoid a where -- одно-параметрический интерфейс: тайпкласс
+    mempty :: a -- zero or neutral element
+    mappend :: a -> a -> a -- binary op, associative
+    -- helpers:
+    mconcat :: [a] -> a -- fold (flatMap)
+    mconcat = foldr mappend mempty
+{--
+для моноида должны быть валидны законы: правая и левая единица (нейтральность операции); ассоциативность
+mempty `mappend` x = x
+x `mappend` mempty = x
+(x `mappend` y) `mappend` z = x `mappend` (y `mappend` z)
+
+нет требования коммутативности
+x `mappend` y (не должен быть =) y `mappend` x
+--}
+
+-- посмотрим на типы в этом тайпклассе
+
+-- список
+instance Monoid [a] where
+    mempty = []
+    mappend = (++)
+
+-- вернемся к `newtype`
+-- очевидно, для чисел можно выделить два моноида: на операции сложения и операции умножения
+-- чтобы эффективно определить эти два моноида, удобно воспользоваться именно `newtype`
+-- это отбрасываемый в рантайме (бесплатный) враппер, он отбрасывает (не тянет за собой) имеющиеся в базовом типе реализации тайпклассов
+
+newtype Sum a = Sum { getSum :: a } -- упаковка числа в конструкторе Sum, распаковка в геттере getSum
+    deriving (Eq, Ord, Read, Show, Bounded)
+
+instance (Num a) => Monoid (Sum a) where -- для моноида мы требуем, чтобы а был числом
+    mempty = Sum 0
+    mappend (Sum x) (Sum y) = Sum $ x + y
+    -- (Sum x) `mappend` (Sum y) = Sum $ x + y
+
+ghci> Sum 2 `mappend` Sum 3
+Sum {getSum = 5}
+
+-- аналогично для моноида чисел по умножению
+newtype Product a = Product { getProduct :: a } -- упаковка числа в конструкторе Sum, распаковка в геттере getSum
+    deriving (Eq, Ord, Read, Show, Bounded)
+
+instance (Num a) => Monoid (Product a) where
+    mempty = Product 1
+    (Product x) `mappend` (Product y) = Product $ x * y
+
+ghci> Product 2 `mappend` Product 3
+Product {getProduct = 6}
+```
+repl
+
+https://cdsmithus.medium.com/monoids-are-composable-list-summarizers-77d2baf23ffc
+
+```hs
+{--
+Реализуйте представителя класса типов `Monoid`
+для типа `Xor`
+в котором `mappend` выполняет операцию `xor`
+--}
+newtype Xor = Xor { getXor :: Bool }
+    deriving (Eq,Show)
+
+instance Monoid Xor where
+    mempty = undefined
+    mappend = undefined
+
+-- решение
+-- Exclusive or (XOR, EOR or EXOR) is a logical operator which results true when 
+-- either of the operands are true (one is true and the other one is false) 
+
+-- true xor false = true
+-- false xor false = false
+-- true xor true = false
+
+class Monoid a where -- одно-параметрический интерфейс: тайпкласс
+    mempty :: a -- zero or neutral element
+    mappend :: a -> a -> a -- binary op, associative
+    -- helpers:
+    mconcat :: [a] -> a -- fold (flatMap)
+    mconcat = foldr mappend mempty
+
+newtype Xor = Xor { getXor :: Bool }
+    deriving (Eq, Show)
+instance Monoid Xor where
+    mempty = Xor False -- x xor mempty = mempty xor x = false xor x
+    mappend (Xor True) (Xor x) = Xor (not x)
+    mappend (Xor False) (Xor x) = Xor x
+
+-- alternative
+
+newtype Xor = Xor { getXor :: Bool }
+    deriving (Eq, Show)
+
+instance Monoid Xor where
+    mempty = Xor False
+    Xor x `mappend` Xor y = Xor (x /= y)
+```
+test
+
+### 4.6.8 стандартные моноиды
+
+Пары (кортежи, `tuple`) - являются моноидами, если их элементы тоже моноиды.
+Вообще, полезно сперва определить семантику Бинарной Ассоциативной Операции (`mappend`) для рассматриваемого типа данных.
+
+Maybe. Сложение двух опций: возможны варианты (вытаскивать первый же Nothing), (протаскивать валидное значение Just)
+
+```hs
+instance (Monoid a, Monoid b) => Monoid (a, b) where -- требование (контекст): оба элемента есть моноиды
+    mempty = (mempty, mempty) -- нейтраль из а, нейтраль из б (они оба моноиды ведь)
+    (x1, y1) `mappend` (x2, y2) = (x, y) where
+        x = x1 `mappend` x2 -- аппенд из моноида а
+        y = y1 `mappend` y2 -- аппенд из моноида б
+
+ghci> ("abc", Product 2) `mappend` ("def", Product 3)
+("abcdef",Product {getProduct = 6})
+
+-- вариант буквального следования монадическим законам, с делегированием операции на внутренний элемент типа моноид
+instance (Monoid a) => Monoid (Maybe a) where -- требуем от элемента быть моноидом
+    mempty = Nothing
+    Nothing `mappend` x = x -- протаскиваем валидное значение, пока оно есть. Четыре варианта комбинаций (Nothing, Just)
+    x `mappend Nothing` = x
+    Just x `mappend` Just y = Just $ x `mappend` y
+
+-- есть полезный вариант без делегирования операции во внутренний элемент
+-- всегда возвращаем первый элемент из пары, если он не пустой (первый не-нулевой)
+newtype First a = First { getFirst :: Maybe a } -- воспользуется newtype для создания еще одного моноида для Maybe
+    deriving (Eq, Ord, Read, Show)
+
+instance Monoid (First a) where
+    mempty = First Nothing
+    (First Nothing) `mappend` x = x
+    x `mappend` _ = x -- если первый элемент не пуст, то всегда его и возвращаем
+
+ghci> mconcat [First Nothing, First (Just 3), First (Just 5)]
+First {getFirst = Just 3}
+-- вернул "первый не-нулевой"
+
+-- поговорим про "упаковку", вот так набирать утомительно и это неправда
+[First Nothing, First (Just 3), First (Just 5)]
+-- более правдоподобно список значений может выглядеть так
+[Nothing, Just 3, Just 5]
+-- упакуем
+map First [Nothing, Just 3, Just 5]
+-- и используем
+mconcat $ map First [Nothing, Just 3, Just 5]
+-- и распакуем
+ghci> getFirst $ mconcat $ map First [Nothing, Just 3, Just 5]
+Just 3
+
+-- Доллар это аппликация, а точка - композиция
+
+-- упаковка-операция-распаковка в виде композиции функций
+ghci> let firstConcat = getFirst . mconcat . map First
+ghci> firstConcat [Nothing, Just 3, Just 5]
+Just 3
+
+-- extra
+
+-- Как правильно делать в современных версиях библиотеки (но не заработает в старой)
+instance Monoid (First a) where
+    mempty = First Nothing
+instance Semigroup (First a) where
+    First Nothing <> x = x
+    x <> _ = x
+```
+repl
+
+```hs
+{--
+Реализуйте представителя класса типов `Monoid`
+для `Maybe' a`
+чтобы `mempty` не был равен `Maybe' Nothing`
+Нельзя накладывать никаких дополнительных ограничений на тип `a`
+кроме указанных в условии
+--}
+newtype Maybe' a = Maybe' { getMaybe :: Maybe a }
+    deriving (Eq,Show)
+
+instance Monoid a => Monoid (Maybe' a) where
+    mempty = undefined
+    mappend = undefined
+
+-- решение
+
+newtype Maybe' a = Maybe' { getMaybe :: Maybe a }
+    deriving (Eq, Show)
+
+instance (Monoid a) => Monoid (Maybe' a) where
+    mempty = Maybe' (Just mempty) -- чтобы `mempty` не был равен `Maybe' Nothing`
+
+    mappend (Maybe' Nothing) (Maybe' Nothing) = Maybe' Nothing
+    mappend (Maybe' (Just x)) (Maybe' (Just y)) = Maybe' (Just (x `mappend` y))
+-- а вот это я не понял, пояснительную бригаду, плз:
+    mappend (Maybe' Nothing) (Maybe' (Just y)) = Maybe' Nothing
+    mappend (Maybe' (Just x)) (Maybe' Nothing) = Maybe' Nothing
+-- пояснение: х аппенд емпти = емпти, только такая комбинация удовлетворяет трем законам
+
+-- reference
+
+{--
+законы: для моноида должны быть валидны законы: правая и левая единица (нейтральность операции); ассоциативность
+1) mempty `mappend` x = x
+2) x `mappend` mempty = x
+3) (x `mappend` y) `mappend` z = x `mappend` (y `mappend` z)
+
+--}
+import Prelude hiding (Monoid, mappend, mempty)
+class Monoid a where -- одно-параметрический интерфейс: тайпкласс
+    mempty :: a -- zero or neutral element
+    mappend :: a -> a -> a -- binary op, associative
+    -- helpers:
+    mconcat :: [a] -> a -- fold (flatMap)
+    mconcat = foldr mappend mempty
+
+instance (Monoid a) => Monoid (Maybe a) where
+    mempty = Nothing
+    Nothing `mappend` x = x
+    x `mappend` Nothing = x
+    Just x `mappend` Just y = Just $ x `mappend` y
+
+instance (Monoid a, Monoid b) => Monoid (a, b) where -- требование (контекст): оба элемента есть моноиды
+    mempty = (mempty, mempty) -- нейтраль из а, нейтраль из б (они оба моноиды ведь)
+    (x1, y1) `mappend` (x2, y2) = (x, y) where
+        x = x1 `mappend` x2 -- аппенд из моноида а
+        y = y1 `mappend` y2 -- аппенд из моноида б
+
+-- alternative
+
+newtype Maybe' a = Maybe' { getMaybe :: Maybe a }
+    deriving (Eq,Show)
+
+instance Monoid a => Monoid (Maybe' a) where
+    mempty = Maybe' $ Just mempty
+    mappend (Maybe' (Just a)) (Maybe' (Just b)) = Maybe' $ Just $ mappend a b
+    _ `mappend` _ = Maybe' $ mempty
+
+```
+test
+
+```hs
+https://stepik.org/lesson/7602/step/10?unit=1473
+TODO
+```
+test
+
+### 4.6.11 эндоморфизм, newtype Endo, Monoid Endo
+
+Эндоморфизмы это функции где область определения = области значений.
+Есть моноид эндоморфизмов, где Бинарная Ассоциативная Операция это композиция двух функций.
+Нейтральный элемент это функция `id`
+```hs
+-- Посмотрим на список функций
+[(*2), (+5), (^2)]
+
+-- тип: список стрелок из числа-в-число
+ghci> :t [(*2), (+5), (^2)]
+[(*2), (+5), (^2)] :: Num a => [a -> a]
+
+ghci> zipWith ($) [(*2), (+5), (^2)] [1 ..] -- два списка зипованы на операторе применения
+[2,7,9] -- 1*2, 2+5, 3^2
+
+-- функции из типа А в тип А называются эндоморфизмами
+-- a -> a -- это эндоморфизм
+
+newtype Endo a = Endo { appEndo :: a -> a }
+instance Monoid (Endo a) where
+    mempty = Endo id
+    (Endo f) `mappend` (Endo g) = Endo (f . g) -- эф как декоратор над же, сначала применяется же, потом к результату применяется эф
+
+-- использование
+map Endo [(*2), (+5), (^2)]
+
+ghci> :t map Endo [(*2), (+5), (^2)]
+map Endo [(*2), (+5), (^2)] :: Num a => [Endo a] -- список эндоморфизмов
+
+ghci> :t mconcat $ map Endo [(*2), (+5), (^2)]
+mconcat $ map Endo [(*2), (+5), (^2)] :: Num a => Endo a -- сложили в один эндоморфизм
+
+ghci> :t appEndo $ mconcat $ map Endo [(*2), (+5), (^2)]
+appEndo $ mconcat $ map Endo [(*2), (+5), (^2)] :: Num a => a -> a -- вынули результат: одна ф. как комбинация списка ф.
+
+ghci> (appEndo $ mconcat $ map Endo [(*2), (+5), (^2)]) 4
+42 -- 4 ^2 +5 *2 = 16 +5 *2 = 21 *2 = 42
+```
+repl
+
+Тайпкласс моноид это не просто мат.абстракция, это интерфейс, API.
+Интерфейс дает средство свертки списка через бинарную ассоциативную операцию, с нейтральным элементом.
+Соответственно, если операции над вашими типами данных могут быть выражены через этот интерфейс,
+можно эти операции скормить разным видам вычислителей, умеющих в моноиды.
+Например: бустинг через параллелизацию. И/или использование GPU, ...
+
+> Точная формулировка была бы такой: cписок, тип элементов которого является представителем класса Monoid
+
+```hs
+https://stepik.org/lesson/7602/step/12?unit=1473
+TODO
+```
+test
 
 Grep `TODO` and fix it, before moving to the next step.
