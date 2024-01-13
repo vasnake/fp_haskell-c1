@@ -2668,7 +2668,8 @@ instance (Monoid a) => Monoid (Maybe' a) where
 -- а вот это я не понял, пояснительную бригаду, плз:
     mappend (Maybe' Nothing) (Maybe' (Just y)) = Maybe' Nothing
     mappend (Maybe' (Just x)) (Maybe' Nothing) = Maybe' Nothing
--- пояснение: х аппенд емпти = емпти, только такая комбинация удовлетворяет трем законам
+-- пояснение: закон `x append empty = x` в сочетании с фактом `Nothing is not empty` приводит к тому, что Nothing надо вернуть при
+-- складывании с empty (который = Just)
 
 -- reference
 
@@ -2707,16 +2708,136 @@ newtype Maybe' a = Maybe' { getMaybe :: Maybe a }
 instance Monoid a => Monoid (Maybe' a) where
     mempty = Maybe' $ Just mempty
     mappend (Maybe' (Just a)) (Maybe' (Just b)) = Maybe' $ Just $ mappend a b
-    _ `mappend` _ = Maybe' $ mempty
-
+    _ `mappend` _ = Maybe' $ mempty -- works only in solutions checker (stepik)
 ```
 test
 
 ```hs
-https://stepik.org/lesson/7602/step/10?unit=1473
-TODO
+{--
+Ниже приведено определение класса `MapLike` типов, похожих на тип `Map`
+Определите представителя `MapLike` для типа `ListMap`
+определенного ниже как список пар ключ-значение
+
+Для каждого ключа должно храниться не больше одного значения
+Функция `insert` заменяет старое значение новым если ключ уже содержался в структуре
+--}
+import Prelude hiding (lookup)
+import qualified Data.List as L
+
+class MapLike m where
+    empty :: m k v
+    lookup :: Ord k => k -> m k v -> Maybe v
+    insert :: Ord k => k -> v -> m k v -> m k v
+    delete :: Ord k => k -> m k v -> m k v
+    fromList :: Ord k => [(k,v)] -> m k v
+    fromList [] = empty
+    fromList ((k,v):xs) = insert k v (fromList xs)
+
+newtype ListMap k v = ListMap { getListMap :: [(k,v)] }
+    deriving (Eq,Show)
+
+-- решение: обеспечить уникальность ключей удалением записи перед вставкой
+
+import Prelude hiding (lookup)
+import qualified Data.List as L
+
+class MapLike m where
+    empty :: m k v
+    lookup :: Ord k => k -> m k v -> Maybe v
+    insert :: Ord k => k -> v -> m k v -> m k v
+    delete :: Ord k => k -> m k v -> m k v
+    fromList :: Ord k => [(k,v)] -> m k v
+    fromList [] = empty
+    fromList ((k,v):xs) = insert k v (fromList xs)
+
+newtype ListMap k v = ListMap { getListMap :: [(k,v)] }
+    deriving (Eq,Show)
+
+instance MapLike ListMap where
+    empty = ListMap []
+    lookup key = L.lookup key . getListMap
+    insert key value = ListMap . ((key,value):) . getListMap . delete key
+    delete key = ListMap . filter ((key /=) . fst) . getListMap
+
+----------------------------------------------------------------------------
+
+import Prelude hiding (lookup)
+import qualified Data.List as L
+
+class MapLike m where
+    empty :: m k v
+    lookup :: Ord k => k -> m k v -> Maybe v
+    insert :: Ord k => k -> v -> m k v -> m k v
+    delete :: Ord k => k -> m k v -> m k v
+    fromList :: Ord k => [(k,v)] -> m k v
+    fromList [] = empty
+    fromList ((k,v):xs) = insert k v (fromList xs)
+
+newtype ListMap k v = ListMap { getListMap :: [(k,v)] }
+    deriving (Eq,Show)
+
+instance MapLike ListMap where
+    empty = ListMap []
+    lookup k (ListMap xs) = case L.find ((==k) . fst) xs of
+        Just (_,v) -> Just v
+        _ -> Nothing
+    insert k v m = ListMap $ (k,v) : getListMap (delete k m)
+    delete k (ListMap xs) = ListMap $ filter ((/=k) . fst) xs
+
+----------------------------------------------------------------------
+
+import Prelude hiding (lookup)
+import qualified Data.List as L
+import Data.Coerce
+import Data.Ord
+import Data.Function
+
+class MapLike m where
+    empty :: m k v
+    lookup :: Ord k => k -> m k v -> Maybe v
+    insert :: Ord k => k -> v -> m k v -> m k v
+    delete :: Ord k => k -> m k v -> m k v
+    fromList :: Ord k => [(k,v)] -> m k v
+    fromList [] = empty
+    fromList ((k,v):xs) = insert k v (fromList xs)
+
+newtype ListMap k v = ListMap { getListMap :: [(k,v)] }
+    deriving (Eq,Show)
+ 
+instance MapLike ListMap where
+    empty = ListMap []
+    lookup = (coerce :: (k -> [(k, v)] -> Maybe v) -> k -> ListMap k v -> Maybe v) L.lookup
+    insert k v = (coerce :: ([(k, v)] -> [(k, v)]) -> ListMap k v -> ListMap k v) 
+        $ L.insertBy (comparing fst) (k,v) . L.deleteBy ((==) `on` fst) (k,undefined)
+    delete k = (coerce :: ([(k, v)] -> [(k, v)]) -> ListMap k v -> ListMap k v)
+        $ L.deleteBy ((==) `on` fst) (k,undefined)
+
+------------------------------------------------------------------
+
+import Data.Function (on)
+import Prelude hiding (lookup)
+import qualified Data.List as L
+
+class MapLike m where
+    empty :: m k v
+    lookup :: Ord k => k -> m k v -> Maybe v
+    insert :: Ord k => k -> v -> m k v -> m k v
+    delete :: Ord k => k -> m k v -> m k v
+    fromList :: Ord k => [(k,v)] -> m k v
+    fromList [] = empty
+    fromList ((k,v):xs) = insert k v (fromList xs)
+
+newtype ListMap k v = ListMap { getListMap :: [(k,v)] }
+    deriving (Eq,Show)
+
+instance MapLike ListMap where
+    empty = ListMap []
+    lookup k = L.lookup k . getListMap
+    insert k v = ListMap . ((k,v) :) . getListMap . delete k
+    delete k = ListMap . L.deleteBy ((==) `on` fst) (k,undefined) . getListMap
+
 ```
-test
+test [maplike](./chapter-4.6/test-maplike.hs)
 
 ### 4.6.11 эндоморфизм, newtype Endo, Monoid Endo
 
@@ -2768,9 +2889,73 @@ repl
 > Точная формулировка была бы такой: cписок, тип элементов которого является представителем класса Monoid
 
 ```hs
-https://stepik.org/lesson/7602/step/12?unit=1473
-TODO
+-- Реализуйте представителя `MapLike` для типа `ArrowMap`, определенного ниже.
+
+import Prelude hiding (lookup)
+
+class MapLike m where
+    empty :: m k v
+    lookup :: Ord k => k -> m k v -> Maybe v
+    insert :: Ord k => k -> v -> m k v -> m k v
+    delete :: Ord k => k -> m k v -> m k v
+    fromList :: Ord k => [(k,v)] -> m k v
+
+newtype ArrowMap k v = ArrowMap { getArrowMap :: k -> Maybe v }
+
+-- решение
+-- апи "мапки" реализуем через однопараметрические функции
+-- функции можно можно "заворачивать" (оператор композиции `.`) одну-в-другую, но проще через лямбды
+
+import Prelude hiding (lookup)
+class MapLike m where
+    empty :: m k v
+    lookup :: Ord k => k -> m k v -> Maybe v
+    insert :: Ord k => k -> v -> m k v -> m k v
+    delete :: Ord k => k -> m k v -> m k v
+    fromList :: Ord k => [(k,v)] -> m k v
+
+newtype ArrowMap k v = ArrowMap { getArrowMap :: k -> Maybe v }
+-- под капотом стрелка (маппинг) k -> Maybe v
+
+instance MapLike ArrowMap where
+    -- empty :: ArrowMap k v
+    empty = ArrowMap $ const Nothing
+
+    -- lookup :: Ord k => k -> ArrowMap k v -> Maybe v
+    lookup key f = getArrowMap f key
+
+    -- insert :: Ord k => k -> v -> ArrowMap k v -> ArrowMap k v
+    insert key val (ArrowMap f) = ArrowMap (\ k -> if k == key then Just val else f k)
+
+    -- delete :: Ord k => k -> ArrowMap k v -> ArrowMap k v
+    delete key (ArrowMap f) = ArrowMap (\ k -> if k == key then Nothing else f k)
+
+    -- fromList :: Ord k => [(k, v)] -> ArrowMap k v
+    fromList lst = ArrowMap $ find lst where
+        find [] _ = Nothing
+        find ((k, v) : pairs) key = if k == key then Just v else find pairs key
+    -- fromList [] = empty
+    -- fromList ((k, v) : xs) = insert k v (fromList xs)
+
+-- альтернативы
+
+import Prelude hiding (lookup)
+
+class MapLike m where
+    empty :: m k v
+    lookup :: Ord k => k -> m k v -> Maybe v
+    insert :: Ord k => k -> v -> m k v -> m k v
+    delete :: Ord k => k -> m k v -> m k v
+    fromList :: Ord k => [(k,v)] -> m k v
+
+newtype ArrowMap k v = ArrowMap { getArrowMap :: k -> Maybe v }
+
+instance MapLike ArrowMap where
+    empty = ArrowMap $ const Nothing
+    lookup k (ArrowMap f) = f k
+    insert k v (ArrowMap f) = ArrowMap $ \x -> if x == k then return v else f x
+    delete k (ArrowMap f) = ArrowMap $ \x -> if x == k then Nothing else f x
+    fromList = foldr (uncurry insert) empty
+
 ```
 test
-
-Grep `TODO` and fix it, before moving to the next step.
