@@ -2,12 +2,20 @@
 
 [Функциональное программирование на языке Haskell / Денис Москвин / stepik](https://stepik.org/course/75/syllabus?next=)
 
-definitions
-- Functor: `fmap :: (a -> b) -> f a -> f b` поднимает ф. в контекст, оператор "применения" `<$>`. Структура "контейнера" не меняется.
-Законы функтора: 1) `fmap id = id`; 2) `fmap (f . g) = (fmap f) . (fmap g)`
+Мотивация: абстракция и композиция вычислений с эффектами.
+Мы хотим тотальные чистые функции и мы хотим модульность и композиционность (собирать сложные решения из простых компонент).
+Для обработки эффектов придумали Стрелку Клейсли `a -> m a` и монады (композиция вычислений с контекстом).
 
-- Monad: `return :: a -> m a` поднимает значение в монаду, позволяет любую стрелку сделать стрелкой Клейсли.
-`bind :: m a -> (a -> m b) -> m b` оператор монадического связывания вычислений, оператор `>>=`.
+definitions
+- Functor: тайпкласс с методом `fmap :: (a -> b) -> f a -> f b`
+поднимает ф. в контекст, оператор "применения" `<$>`. Структура "контейнера" не меняется.
+Законы функтор: 1) `fmap id = id`; 2) `fmap (f . g) = (fmap f) . (fmap g)`
+
+- Monad: тайпкласс с двумя методами
+`return :: a -> m a` aka `pure` поднимает значение в монаду, позволяет любую стрелку сделать стрелкой Клейсли `k`.
+`bind :: m a -> (a -> m b) -> m b` aka `>>=` оператор монадического связывания вычислений.
+Законы монад: 1) левая "единица" pure `(return a) >>= k = k a`; 2) правая "единица" pure `m >>= return = m`;
+3) ассоциативность bind `(m >>= k1) >>= k2 = m >>= (\ x -> k1 x >>= k2)`
 
 > (Монад это) Моноид в категории эндофункторов (моноид это бинарная операция и нейтральный элемент, (эндо)функтор это стрелка в контексте).
 Т.е. монада композирует (складывает) стрелки в контексте (а нейтраль какая?).
@@ -564,18 +572,299 @@ ghci> runIdentity $ (return 3) >>= wrap'n'succ >>= wrap'n'succ >>= wrap'n'succ
 ```
 repl
 
+Обратите внимание, как через оператор `bind` монады мы получаем "пайплайн" вычислений-в-контексте.
+
 ```hs
 https://stepik.org/lesson/8438/step/3?unit=1573
 TODO
 ```
 test
 
-### 5.3.4
-https://stepik.org/lesson/8438/step/4?unit=1573
+### 5.3.4 первые два закона монад
+
+Законы монад, первые два (из трех)
 ```hs
+-- remember that
+class Monad m where
+    return :: a -> m a
+    (>>=) :: m a -> (a -> m b) -> m b -- оператор bind
+newtype Identity a = Identity { runIdentity :: a } deriving (Eq, Show)
+
+instance Functor Identity where fmap  f (Identity x) = Identity (f x)
+instance Applicative Identity where
+  pure x = Identity x -- Monad return
+  Identity f <*> Identity v = Identity (f v) 
+
+instance Monad Identity where
+    return = Identity
+    (Identity x) >>= k = k x
+
+wrap'n'succ :: Integer -> Identity Integer
+wrap'n'succ = Identity . succ
+
+-- мы запускали цепочку двумя разными способами
+ghci> runIdentity $ (wrap'n'succ 3) >>= wrap'n'succ >>= wrap'n'succ
+ghci> runIdentity $ (return 3) >>= wrap'n'succ >>= wrap'n'succ >>= wrap'n'succ
+-- т.е. вот эти две формы эквивалентны
+(return 3) >>= wrap'n'succ
+wrap'n'succ 3
+-- это иллюстрация к первому закону монад
+
+-- первый закон (левый pure)
+(return a) >>= k    =    k a
+-- применение стрелки Клейсли к значению х эквивалентно применению оператора bind к этой стрелке К. и значению завернутому в return (pure)
+
+-- иллюстрация ко второму закону
+ghci> (wrap'n'succ 3) >>= return    -- Identity {runIdentity = 4}
+ghci> (wrap'n'succ 3)               -- Identity {runIdentity = 4}
+-- return это стрелка К., связав ее байндом с монадой мы не меняем ничего
+
+-- второй закон (правый pure)
+m >>= return    =    m
+
+-- первый и второй законы отражают "тривиальную" природу оператора `return`
+-- он не выполняет эффектов и не меняет значение
+
+-- extra
+-- язык, в котором законы монад выглядят как законы моноидов, оперирует композицией стрелок Клейсли
+return :: (Monad m) => a -> m a
+f :: (Monad m) => a -> m b
+g :: (Monad m) => b -> m c
+h :: (Monad m) => c -> m d
+(>=>) :: (Monad m) => (a -> m b) -> (b -> m c) -> (a -> m c)
+
+-- Левая единица
+return >=> f    === f
+-- Правая единица
+f >=> return    === f
+-- Ассоциативность
+f >=> (g >=> h) === (f >=> g) >=> h
 
 ```
 repl
+
+Похоже на законы для моноида (правая и левая единица).
+Т.е. (в категории эндофункторов) bind это бинарная операция, return это нейтральное значеие (единица).
+
+### 5.3.5 третий закон монад, ассоциативность
+
+Третий закон должен постулировать ассоциативность (как у моноид).
+Как бы да, но реализуется это через фокус с добавлением лямбды (ленивости) и честной ассоциативности тут нет
+```hs
+-- remember that
+-- (a -> m b) это Стрелка Клейсли
+class Monad m where
+    return :: a -> m a
+    (>>=) :: m a -> (a -> m b) -> m b -- оператор bind
+-- первый закон (левый pure)
+(return a) >>= k    =    k a
+-- второй закон (правый pure)
+m >>= return    =    m
+
+-- думаете так?:
+(m >>= k) >>= k'  =   m >>= (k >>= k')
+-- нет, не так. По типам нет соответствия
+-- левая часть рабоатает, правая часть не работает, (монада байнд монада) не соответствует сигнатуре байнд
+
+-- хакнем чутка, добавим свободный х :: a
+(m >>= k) >>= k'  =   m >>= ((\ x -> k x) >>= k')
+-- (\ x -> k x) вот эта лямбда приводит к подгонке типов выражений под сигнатуру bind
+-- ((\ x -> k x) >>= k') это стрелка Клейсли, которая по факту есть ленивый враппер над двумя внутренними стрелками.
+-- мы лениво ждем в стрелке к, пока нам подадут на вход значение из монады м.
+-- после этого можем запускать вычисление в стрелке к.
+-- Так что это не "честная" ассоциативность, это фокус для имитации ассоциативности.
+
+-- идея третьего закона:
+-- мы можем лево-ассоциативные байнды заменить на право-ассоциативные,
+-- но для этого мы должны завернуть стрелки К. в лямбды, ждущие значения из предыдущего шага пайплайна.
+
+-- третий закон, ассоциативность bind (скобки опциональны, и без них корректно)
+(m >>= k) >>= k'  =   m >>= (\ x -> k x >>= k')
+
+-- иллюстрация
+-- левая ассоциативность
+ghci> runIdentity $ (wrap'n'succ 3) >>= wrap'n'succ >>= wrap'n'succ
+6
+ghci> runIdentity $ ((wrap'n'succ 3) >>= wrap'n'succ) >>= wrap'n'succ
+6
+-- правая ассоциативность
+ghci> runIdentity $ (wrap'n'succ 3) >>= (\ x -> wrap'n'succ x >>= wrap'n'succ)
+6
+
+-- затравка к теме "do нотация", явное выражение параметров для каждой стрелки Клейсли
+ghci> runIdentity $ (wrap'n'succ 3) >>= (\ x -> wrap'n'succ x >>= (\ y -> wrap'n'succ y))
+6
+```
+repl
+
+```hs
+https://stepik.org/lesson/8438/step/6?unit=1573
+TODO
+```
+test
+
+```hs
+https://stepik.org/lesson/8438/step/7?unit=1573
+TODO
+```
+test
+
+```hs
+https://stepik.org/lesson/8438/step/8?unit=1573
+TODO
+```
+test
+
+### 5.3.9 подходим к do-нотации
+
+Упражнения с цепочками монадический вычислений
+```hs
+-- reference
+class Monad m where
+    return :: a -> m a -- pure
+    (>>=) :: m a -> (a -> m b) -> m b -- оператор bind
+-- первый закон (левый pure)
+(return a) >>= k    =    k a
+-- второй закон (правый pure)
+m >>= return    =    m
+-- ассоциативность bind
+(m >>= k1) >>= k2 = m >>= (\ x -> k1 x >>= k2)
+
+-- сделаем небольшой массаж нашему выражению
+runIdentity $ (wrap'n'succ 3) >>= wrap'n'succ >>= wrap'n'succ
+
+goWrap0 = 
+    wrap'n'succ 3 >>=
+    wrap'n'succ >>=
+    wrap'n'succ >>=
+    return -- по второму закону этот ретурн ничего не меняет
+
+ghci> :t goWrap0 
+goWrap0 :: Identity Integer
+ghci> goWrap0
+Identity {runIdentity = 6}
+ghci> runIdentity goWrap0 
+6
+
+-- перепишем по третьему закону, сменим ассоциативность на правую (на самом деле введем в скоуп переменные x,y,z)
+-- x,y,z это значения вынутые из монадических оберток
+goWrap1 = 
+    wrap'n'succ 3   >>= (\ x ->
+    wrap'n'succ x   >>= (\ y ->
+    wrap'n'succ y   >>= (\ z ->
+    return      z)))
+
+ghci> :t goWrap1 
+goWrap1 :: Identity Integer
+ghci> goWrap1
+Identity {runIdentity = 6}
+ghci> runIdentity goWrap1
+6
+
+-- иллюстрация скоупа переменных
+goWrap2 = 
+    wrap'n'succ 3   >>= (\ x ->
+    wrap'n'succ x   >>= (\ y ->
+    wrap'n'succ y   >>= (\ z ->
+    return (x, y, z)    )))
+
+ghci> :t goWrap2
+goWrap2 :: Identity (Integer, Integer, Integer)
+ghci> goWrap2
+Identity {runIdentity = (4,5,6)}
+ghci> runIdentity goWrap2
+(4,5,6)
+
+-- ой, мы изобрели императивное кодирование, смотрите:
+wrap'n'succ 3   >>= (\ x ->     -- x = succ 3;
+wrap'n'succ x   >>= (\ y ->     -- y = succ x;
+wrap'n'succ y   >>= (\ z ->     -- z = succ y;
+return (x, y, z)    )))         -- return (x, y, z)
+-- оператор байнд можно рассматривать как оператор `;` из императивных языков
+-- здесь мы нагружаем оператор `;` таким смыслом: этот оператор выполняет те эффекты, для которых данная монада создана.
+-- т.е. в хаскель мы сами определяем семантику оператора `;` (в отличие от не ФП языков)
+
+goWrap3 = 
+    wrap'n'succ 3   >>= (\ x ->
+    wrap'n'succ x   >>= (\ y ->
+    wrap'n'succ y   >>          -- облегченный bind, игнорирует результат `succ y`, хотя и выполняет его
+    return (x + y)      ))
+-- облегченный байнд нужен для протаскивания эффектов по цепочке, когда значение вычисления не требуется (ф. возвращает юнит)
+ghci> :t (>>)
+(>>) :: Prelude.Monad m => m a -> m b -> m b
+```
+repl
+
+### 5.3.10 do-нотация
+
+Синтаксический сахар для цепочки монадических вычислений
+```hs
+-- reference
+import Prelude hiding (Monad, (>>=), (>>), return)
+class Monad m where
+    return :: a -> m a
+    (>>=) :: m a -> (a -> m b) -> m b -- оператор bind
+    (>>) :: m a -> m b -> m b
+    mx >> my = mx >>= (\ _ -> my) -- облегченный bind, выполняет эффект но игнорирует значение
+newtype Identity a = Identity { runIdentity :: a } deriving (Eq, Show)
+instance Functor Identity where fmap  f (Identity x) = Identity (f x)
+instance Applicative Identity where
+  pure = Identity -- Monad return
+  Identity f <*> Identity v = Identity (f v) 
+instance Monad Identity where
+    return = Identity
+    (Identity x) >>= k = k x
+wrap'n'succ :: Integer -> Identity Integer
+wrap'n'succ = Identity . succ
+-- End Of Reference
+
+-- правила трансляции сахара в монадические цепочки
+do { e1; e2 } = e1 >> e2 -- облегченный байнд
+do { p <- e1; e2 } = e1 >>= \ p -> e2 -- байнд со связыванием значения из первого маонадического выражения
+do { let v = e1; e2 } = let v = e1 in do e2 -- не-монадические вычисления `v = e1` внутри ду-блока
+
+-- правило немного сложнее чем это
+do { p <- e1; e2 } = e1 >>= \ p -> e2
+-- тут в лямбде возможно применение пат.мат. и пат.мат. может быть неудачен
+do { (Just p) <- e1; e2 } = e1 >>= \ (Just p) -> e2
+-- тогда в монаде будет вызван метод `fail`
+-- этот метод `fail` в каждой монаде реализован по-совему.
+
+-- пример
+goWrap4 =
+    let i = 3 in
+    wrap'n'succ i   >>= \ x ->
+    wrap'n'succ x   >>= \ y ->
+    wrap'n'succ y   >>
+    return          (i, x + y)
+
+import Control.Monad.Identity
+goWrap5 = do
+    let i = 3
+    x <- wrap'n'succ i
+    y <- wrap'n'succ x
+    wrap'n'succ y
+    return (i, x + y)
+
+ghci> goWrap4
+Identity {runIdentity = (3,9)}
+ghci> :t goWrap4
+goWrap4 :: Num a => Identity (a, Integer)
+
+ghci> goWrap5 
+Identity (3,9)
+ghci> :t goWrap5 
+goWrap5 :: Identity (Integer, Integer) -- тип контейнера один для всего блока do. типы значений могут быть разные
+
+-- надо понимать, что оператор bind требует одинаковых типов (монад) слева и справа,
+-- поэтому мы не можем внутри одного блока do оперировать разными монадами, по типам не будет сочетаться
+-- каждые две строчки это левый и правый операнды для bind (с учетом лямбды)
+
+```
+repl
+
+
+
 
 
 
