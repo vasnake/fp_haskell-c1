@@ -14,16 +14,14 @@ instance Functor Tree where
 
 testTree = Branch (Leaf 2) 3 (Leaf 4)
 
--- monadic do notation
-
--- reference
+-- monadic do notation -- reference
 {--
 import Prelude hiding (Monad, (>>=), (>>), return)
 class Monad m where
     return :: a -> m a
     (>>=) :: m a -> (a -> m b) -> m b -- оператор bind
-    (>>) :: m a -> m b -> m b
-    mx >> my = mx >>= (\ _ -> my) -- облегченный bind, выполняет эффект но игнорирует значение
+    (>>) :: m a -> m b -> m b -- облегченный bind, выполняет эффект но игнорирует значение
+    mx >> my = mx >>= (\ _ -> my)
 
 newtype Identity a = Identity { runIdentity :: a } deriving (Eq, Show)
 
@@ -36,19 +34,17 @@ instance Applicative Identity where
 instance Monad Identity where
     return = Identity
     (Identity x) >>= k = k x
---}
 
 -- import Control.Monad.Identity
 wrap'n'succ :: Integer -> Identity Integer
 wrap'n'succ = Identity . succ
--- End Of Reference
 
 goWrap4 =
     let i = 3 in
-    wrap'n'succ i   >>= \ x ->
-    wrap'n'succ x   >>= \ y ->
+    wrap'n'succ i   >>= (\ x ->
+    wrap'n'succ x   >>= (\ y ->
     wrap'n'succ y   >>
-    return          (i, x + y)
+    return          (i, x + y) ))
 
 goWrap5 = do
     let i = 3
@@ -56,3 +52,35 @@ goWrap5 = do
     y <- wrap'n'succ x
     wrap'n'succ y
     return (i, x + y)
+--}
+-- End Of Reference
+
+-- maybe -- reference
+{--
+import Prelude hiding (Maybe, Just, Nothing)
+import Control.Monad (liftM, ap)
+import qualified Control.Monad.Fail as Fail
+
+data Maybe a = Nothing | Just a
+  deriving (Show, Eq, Ord)
+
+instance Functor Maybe where
+    fmap = liftM
+
+instance Applicative Maybe where
+    pure  = return
+    (<*>) = ap
+
+instance Monad Maybe where
+  --return x = Just x
+  return = Just
+  (Just x) >>= k = k x
+  Nothing >>= _ = Nothing
+
+  (Just _) >> m = m
+  Nothing  >> _ = Nothing
+
+instance Fail.MonadFail Maybe where
+  fail _ = Nothing
+--}
+-- End Of Reference
