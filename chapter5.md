@@ -1100,11 +1100,75 @@ https://stepik.org/lesson/8443/step/1?unit=1578
 - Устройство getLine и putStr
 - Полезные вспомогательные функции
 
-### 5.5.2
+### 5.5.2 IO, Monad
+
+В Хаскел ввод-вывод реализован через монаду IO, эффекты этой монады и есть IO
 ```hs
+module Main where
+main = do
+    putStrLn "What's your nme?" -- >> aka then aka sequence
+    name <- getLine
+    putStrLn $ "Nice to meet you, " ++ name ++ "!"
+
+ghci> :t main
+main :: IO () -- IO unit
+-- IO это монада над типом "юнит"
+
+-- юнит можно рассматривать как пустой тупл, маркер того, что значение нас не интересует
+ghci> :t ()
+() :: ()
+ghci> :k ()
+() :: *
+
+-- на выходе main у нас тип последней операции пайплайна
+ghci> :t putStrLn 
+putStrLn :: String -> IO () -- стрелка Клейсли
+
+ghci> :t getLine 
+getLine :: IO String -- строка завернутая в монаду IO
 
 ```
 repl
 
+> любое монадическое значение можно интерпретировать как (вырожденную) стрелку Клейсли
+
+```hs
+https://stepik.org/lesson/8443/step/3?unit=1578
+TODO
+```
+test
+
+### 5.5.4 newtype IO
+
+А почему непременно монада IO? Почему не обычные функции?
+```hs
+-- по законам ФП это должна быть константа, но с консоли мы можем получить любой символ (прерывание программы Ctrl-C)
+getCharFromConsole :: Char
+
+-- вот так уже похоже на правду, значение полученного символа определяет "окружение", state, енв., мир, контекст, whatchamacallit
+getCharFromConsole :: RealWorld -> (RealWorld, Char)
+
+-- можно считать, что реализация монады айо опирается на та такой тип
+newtype IO a = IO (RealWorld -> (RealWorld, a))
+-- где RealWorld это 
+-- RealWorld is deeply magical
+
+-- на самом деле, про айо мы гарантированно знаем его кайнд
+ghci> :k IO
+IO :: * -> * -- что позволяет сделать его монадой
+-- и интерфейс https://hackage.haskell.org/package/base-4.19.0.0/docs/GHC-IO.html#t:IO
+
+-- There is really only one way to "perform" an I/O action: bind it to Main.main in your program
+```
+repl
+
+### 5.5.5
+
+https://stepik.org/lesson/8443/step/5?unit=1578
+
+```hs
+
+```
+repl
 
 Grep `TODO` markers, fix it. After that you're done.
