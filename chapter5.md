@@ -1394,6 +1394,240 @@ https://stepik.org/lesson/8441/step/1?unit=1576
 - Универсальный Reader 1
 - Универсальный Reader 2
 
+### 5.6.2 Reader ((->) e)
+
+Идея заключается в том, что в процессе монадических вычислений мы можем что-то брать из общего для всей цепочки "окружения".
+Читать конфиг, контекст (e - environment, r - read).
+Простейший ридер: функциональная стрелка со связанным первым аргументом.
+```hs
+-- напомним, как выглядел функтор на стрелочке
+instance Functor ((->) e) where
+    fmap :: (a -> b) -> f a -> f b
+    fmap g h = g . h
+-- где `f a = e -> a`, `f b = e -> b`
+(a -> b) -> f a -> f b
+~>
+(a -> b) -> (e -> a) -> (e -> b) -- два параметра для fmap: стрелка-из-а-в-бе, стрелка-из-е-в-а. На выходе стрелка из-е-в-бе
+
+-- пример
+-- возведение в квадрат это функция
+-- length это `[a] -> Int`, где `[a]` это `e`. Енв. это список (в данном случае)
+-- два аргумента скормили в fmap
+-- на выходе стрелка из списка в бе: список это env.
+ghci> :t fmap (^2) length
+fmap (^2) length :: Foldable t => t a -> Int
+
+ghci> fmap (^2) length "abc" -- енв: список из трех элементов
+9
+
+-- перейдем к монаде Reader
+
+instance Monad ((->) e) where
+    return :: a -> (e -> a)
+    return x = \ _ -> x -- тривиальная упаковка значения в стрелку, первый параметр нас тут не интересует
+
+    (>>=) :: m a -> (a -> m b) -> m b
+    (>>=) :: (e -> a) -> (a -> e -> b) -> e -> b -- после подстановки сигнатуры монады
+    -- реализация вытекает из сигнатуры: в монаду-слева скармливается енв, к полученному значению применяется стрелка К. с доп. параметром енв.
+    m (>>=) k = \ e -> k (m e) e -- m :: e -> a; k :: a -> e -> b
+    -- m, k, e: три параметра в bind
+-- видно, что енв. протаскивается через всю цепочку монадических вычислений
+
+-- примеры использования
+
+-- безопасная голова на енв - списке, возвращает опциональную голову списка
+safeHead = do -- pointfree
+    b <- null -- is empty?
+    if b then return Nothing
+    else do
+        h <- head
+        return $ Just h
+
+safeHead xs = do -- not pointfree
+    b <- null xs -- is empty? -- обращение к окружению
+    if b then return Nothing
+    else do
+        h <- head xs -- обращение к окружению
+        return $ Just h
+
+-- альтернативная запись, 
+safeHead = do
+    e <- id -- обращаемся к енв
+    if null e
+        then return Nothing
+        else return $ Just (head e)
+```
+repl
+
+```hs
+https://stepik.org/lesson/8441/step/3?unit=1576
+TODO
+```
+test
+
+```hs
+https://stepik.org/lesson/8441/step/4?unit=1576
+TODO
+```
+test
+
+### 5.6.5 newtype Reader
+
+Для большего удобства завернем стрелку (доступа к енв.) в некий тип
+```hs
+import Control.Applicative
+import Control.Monad (liftM, ap)
+
+newtype Reader r a = Reader { runReader :: (r -> a) } -- завернули стрелку в тип Reader r a, двухпараметрический
+
+-- new ghc fix
+instance Functor (Reader r) where
+    fmap = liftM
+instance Applicative (Reader r) where
+    pure  = return
+    (<*>) = ap
+-- end of fix
+
+:t runReader
+runReader :: Reader r a -> r -> a
+
+-- для создания монады надо связать первый параметр (окружение)
+
+instance Monad (Reader r) where
+    return x = Reader (\ e -> x)
+    m >>= k  = Reader (\ e ->
+        let x = runReader m e
+        in runReader (k x) e)
+-- та же история, протаскивает енв. через оба вычисления в bind
+
+-- внутри монадических вычислений мы применяли ф. `id` для вытаскивания енв.
+-- сделаем более семантически корректный враппер для этого
+ask :: Reader r r
+ask = Reader id
+
+runReader ask 42
+42
+
+-- пример использования
+
+type User = String
+type Password = String
+type UserTable = [(User, Password)]
+pwds :: UserTable
+pwds = [("Bill", "123"), ("Ann", "qwerty"), ("John", "pG3-")]
+
+firstUser :: Reader UserTable User -- чтение из таблицы, таблица=енв, юзер=тип ридера
+firstUser = do
+    e <- ask
+    return $ fst (head e)
+
+runReader firstUser pwds
+"Bill"
+
+```
+repl
+
+### 5.6.6 функции asks, local, reader
+
+Бывает удобно получать не полный ридер а его часть (или трансформированный ридер).
+Для этого в либе есть удобные хелперы
+```hs
+-- рассмотрим пример
+
+asks :: (r -> a) -> Reader r a
+asks = Reader -- конструктор ридера из аргумента-функции
+
+ask = asks id -- частный случай
+
+-- ридер пароля первой записи
+firstUserPwd :: Reader UserTable Password
+firstUserPwd = do
+    pwd <- asks (snd . head) -- применили ф. к енв. и получили ридер
+    return pwd
+
+runReader firstUserPwd pwds
+"123"
+
+-- а теперь упростим: по законам монад, правый return не влияет на результат
+firstUserPwd :: Reader UserTable Password
+firstUserPwd = do
+    asks (snd . head)
+
+firstUserPwd :: Reader UserTable Password
+firstUserPwd = asks (snd . head) -- не нужен bind, вот так хорошо
+
+-- продолжим иллюстрации
+
+usersCount :: Reader UserTable Int
+usersCount = asks length
+
+-- локальная трансформация енв
+local :: (r -> r) -> Reader r a -> Reader r a
+local f mr = Reader (\ e -> runReader mr (f e)) -- runReader :: Reader r a -> r -> a
+-- r это таблица pwds в данных примерах
+-- стрелка r -> r это трансформер енва
+-- енв оторван, абстрагирован через лямбду, придет потом, при использовании
+-- ридер это функция над енв. поэтому модификация енва в ридере это композиция функций
+
+localTest :: Reader UserTable (Int, Int)
+localTest = do
+    count1 <- usersCount -- ридер читающий длину таблицы для енв переданного сверху
+    count2 <- local (("Mike", "xz") : ) usersCount -- local трансформер ридер
+    -- второй счетчик берется из модифицированного ридера
+    -- модифицированный ридер: применяется функция (подклеить голову) к енв, потом применяется старый ридер к новому енв
+    return (count1, count2)
+-- этот фокус работает, ибо енв (таблица) протаскивается через цепочку монадических вычислений, за кадром, тут это не заметно, но оно есть
+-- если расписать полную явную цепочку вычислений (лямбды дают ленивость дополнительную, таблица идет по пайплайну)
+
+runReader localTest pwds
+(3,4)
+
+-- reader, конструктор ридера
+reader :: (r -> a) -> Reader r a
+reader f = do
+    r <- ask
+    return (f r)
+{--
+Конструктор с маленькой буквы полезен (как и в других монадах) ибо
+
+MTL: monad transfer library
+библиотека преобразования монад (расширения перечня эффектов, накручивая монаду на монаду)
+к примеру, накрутить Maybe потом Reader, ...
+
+И нативные конструкторы монад, определенные в этой либе нам мало полезны и неудобны и недоступны.
+Поэтому есть выставленные наружу интерфейсные методы - конструкторы.
+
+--}
+```
+repl
+
+https://hackage.haskell.org/package/transformers-0.5.1.0/docs/Control-Monad-Trans-Reader.html
+
+```hs
+https://stepik.org/lesson/8441/step/7?unit=1576
+TODO
+```
+test
+
+```hs
+https://stepik.org/lesson/8441/step/8?unit=1576
+TODO
+```
+test
+
+```hs
+https://stepik.org/lesson/8441/step/9?unit=1576
+TODO
+```
+test
+
+## chapter 5.7, Монада Writer
+
+https://stepik.org/lesson/8442/step/1?unit=1577
+
+- Монада Writer
+- Интерфейс для монады Writer 
+
 
 
 Grep `TODO` markers, fix it. After that you're done.
