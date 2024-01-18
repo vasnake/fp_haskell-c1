@@ -1,5 +1,5 @@
 module Test where
-import Control.Monad.Identity
+-- import Control.Monad.Identity
 -- import Prelude hiding (Monad, (>>=), (>>), return)
 
 data Tree a = Leaf a | Branch (Tree a) a (Tree a)

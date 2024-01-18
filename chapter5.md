@@ -1142,16 +1142,16 @@ test
 
 А почему непременно монада IO? Почему не обычные функции?
 ```hs
--- по законам ФП это должна быть константа, но с консоли мы можем получить любой символ (прерывание программы Ctrl-C)
+-- посмотрим на функцию чтения с консоли
+-- по законам ФП это должна быть константа, но с консоли мы можем получить любой символ (или прерывание программы)
 getCharFromConsole :: Char
 
 -- вот так уже похоже на правду, значение полученного символа определяет "окружение", state, енв., мир, контекст, whatchamacallit
 getCharFromConsole :: RealWorld -> (RealWorld, Char)
 
--- можно считать, что реализация монады айо опирается на та такой тип
+-- можно считать, что реализация монады айо опирается на такой тип
 newtype IO a = IO (RealWorld -> (RealWorld, a))
--- где RealWorld это 
--- RealWorld is deeply magical
+-- где RealWorld это -- RealWorld is deeply magical
 
 -- на самом деле, про айо мы гарантированно знаем его кайнд
 ghci> :k IO
@@ -1162,13 +1162,238 @@ IO :: * -> * -- что позволяет сделать его монадой
 ```
 repl
 
-### 5.5.5
+### 5.5.5 реализация Monad IO
 
-https://stepik.org/lesson/8443/step/5?unit=1578
+Сделаем упражнение: напишем реализацию монады IO
+```hs
+class Monad m where
+    return :: a -> m a -- pure
+    (>>=) :: m a -> (a -> m b) -> m b -- оператор bind
+    (>>) :: m a -> m b -> m b -- `>> 	then, sequence`, выполняет эффект левого операнда но игнорирует его значение
+    fail :: String -> m a
+
+-- сигнатуры для нашего айо
+newtype IO a = IO (RealWorld -> (RealWorld, a))
+return :: a -> IO a
+(>>=) :: IO a -> (a -> IO b) -> IO b
+
+-- для упрощения и снижения шума (постоянных пат.мат.) запишем тип чуть иначе
+-- newtype IO a = IO (RealWorld -> (RealWorld, a))
+type IO a = RealWorld -> (RealWorld, a) -- инстанс тайпкласса для такой записи не будет валидным, но для целей упражнения это не важно
+
+-- return :: a -> IO a
+return :: a -> RealWorld -> (RealWorld, a) -- сделали подстановку, для наглядности. арность ф. = 2
+
+-- (>>=) :: IO a -> (a -> IO b) -> IO b
+(>>=) :: (RealWorld -> (RealWorld, a)) -- первое взаимодействие с миром
+    -> (a -> (RealWorld -> (RealWorld, b))) -- второе взаимодействие с миром
+    -> RealWorld -> (RealWorld, b) -- возвращаемая монада
+-- сделали подстановку, IMHO зря, за деталями теряется мысль
+
+instance Monad IO where
+    -- return :: a -> IO a
+    return a = (\ w -> (w, a))
+    -- return a w = (w, a) -- альтернативная запись
+    -- pure это ф. возвращающая функцию из "мира" в пару (мир. а)
+    -- обратите внимание: мир не меняется, это просто упаковка значения в монаду
+
+    -- (>>=) :: IO a -> (a -> IO b) -> IO b
+    (>>=) m k = -- m :: (RealWorld -> (RealWorld, a)); k :: (a -> (RealWorld -> (RealWorld, b)))
+        (\ w1 -> -- w1 :: RealWorld, параметр лямбды, при запуске монады мы должбы скормить ей мир
+            case m w1 of -- звпускается пат.мат. на левом операнде bind,
+                (w2, a) -> -- что приводит к проявлению эффектов левой операции
+                    k a w2) -- применяется правая операция, которая должна привести к эффектам правого операнда bind
+    -- получаем монаду и стрелку К., получаем мир1, применяем монаду к этому мир1,
+    -- получаем мир2 и значение из первой монады,
+    -- применяем стрелку к значению и скармливаем туда мир2
+
+-- эффекты выполняются один раз и в правильном порядке
+-- порядок выполнения эффектов (левый, правый) гарантируется наличием пат.мат. (форсирование левого вычисления)
+-- и зависимостью правого вычисления от левого.
+```
+repl
+
+> Это не столько рассказ об IO, сколько описание хитрого шаблона, когда case служит для определение последовательности вычислений
 
 ```hs
+mapM :: Monad m => (a -> m b) -> [a] -> m [b]
+mapM _ []     = return []
+mapM f (x:xs) = do
+  x' <- f x
+  xs' <- mapM f xs
+  return (x' : xs')
+mapM show "123"
+-- Попробуйте предсказать (или по крайней мере проанализировать) его результат
+["'''","''3","'''","'2'","'23","'2'","'''","''3","'''","1''","1'3","1''","12'","123","12'","1''","1'3","1''","'''","''3","'''","'2'","'23","'2'","'''","''3","'''"]
+```
+extra
+
+### 5.5.6 использование Monad IO
+
+Как можно реализовать getLine, putLine
+```hs
+getLine :: IO String -- хотим реализовать это
+
+-- будем использовать готовую getChar
+ghci> :i getChar
+getChar :: IO Char      -- Defined in ‘System.IO’
+
+getLine :: IO String
+getLine = do
+    c <- getChar
+    if c == '\n' then return []
+    else do -- рекурсивно запускаем еще одно монадическое вычисление
+        cs <-getLine
+        return (c : cs)
+
+-- теперь обратная задача, печать строки с использованием
+ghci> :i putChar -- возвращает "единичный тип" юнит, завернутый в монаду IO
+putChar :: Char -> IO ()        -- Defined in ‘System.IO’
+
+putStr :: String -> IO ()
+putStr [] = return ()
+putStr (x : xs) = (putChar x) >> (putStr xs) -- рекурсивно связываем через `then, sequence` с выводом хвоста
+```
+repl
+
+### 5.5.7 функции sequence(_), mapM(_)
+
+Для упрощения работы с монадами есть набор хелперов
+```hs
+import Control.Monad
+-- функции с подчеркиванием (sequence_, mapM_, ...)
+-- проводят монадические вычисления через оператор `>> then, sequence`
+-- что означает, что работают с эффектами а не значениями (типа "запись в ...", в отличие от "чтения из ...")
+
+ghci> :i Control.Monad.sequence_ -- работает с эффектами, игнорирует значения
+sequence_ :: (Foldable t, Monad m) => t (m a) -> m () -- Defined in ‘Data.Foldable’
+
+-- берет список монад, выполняет `>> then, sequence` над ними в правой свертке
+sequence_ = foldr (>>) (return ()) -- foldr bin.op. ini
+
+ghci> sequence_ [Just 1, Just 2]
+Just ()
+ghci> sequence_ [Just 1, Nothing, Just 3]
+Nothing -- поймали эффект
+
+ghci> sequence_ ["12", "3456"]
+[(),(),(),(),(),(),(),()] -- эффект это структура монады списка, размер 2*4=8
+
+putStr :: String -> IO ()
+putStr [] = return ()
+putStr (x : xs) = (putChar x) >> (putStr xs) -- рекурсивно связываем через `then, sequence` с выводом хвоста
+
+putStr :: String -> IO ()
+putStr = sequence_ . map putChar -- делаем из строки список монад и его секвенсируем (производим эффекты)
+
+-- demo
+ghci> sequence_ $ map putChar "abc\n"
+abc
+abghci> sequence_ [putChar 'a', putChar 'b', putChar '\n']
+ab
+ghci> :t (sequence_ [putChar 'a', putChar 'b', putChar '\n'])
+(sequence_ [putChar 'a', putChar 'b', putChar '\n']) :: IO ()
+
+-- есть обобщение `sequence_ . map`
+ghci> :i Control.Monad.mapM_
+mapM_ :: (Foldable t, Monad m) => (a -> m b) -> t a -> m () -- Defined in ‘Data.Foldable’
+
+mapM_ k = sequence_ . map k
+
+putStr :: String -> IO ()
+putStr = mapM_ putChar -- делаем из строки список монад и его секвенсируем (производим эффекты)
+
+ghci> mapM_ putChar "abc\n"
+abc
+
+-- эффекты монады списка, демо
+
+-- почему 8 а не 6? WTF?
+ghci> mapM_ (\ x -> [x,x]) "ABC"
+[(),(),(),(),(),(),(),()]
+
+-- первая часть для каждой буквы дала удвоение буквы, три списка по два элемента
+ghci> map (\ x -> [x,x]) "ABC"
+["AA","BB","CC"]
+-- sequence_ по каждому из трех списков разветвляется: два раза на первом, два на втором и два на третьем: 2*2*2=8
+
+-- 3*2*2=12
+ghci> length $ sequence_ ["abc", "bc", "cd"]
+12
+-- 3*3*2=18
+ghci> length $ sequence_ ["abc", "bcd", "cd"]
+18
+
+-- полноценные версии sequence, mapM, используется bind, производятся эффекты и вычисляются значения (в список значений)
+
+ghci> :i sequence
+type Traversable :: (* -> *) -> Constraint
+class (Functor t, Foldable t) => Traversable t where
+  ...
+  sequence :: Monad m => t (m a) -> m (t a) -- Defined in ‘Data.Traversable’
+-- список монад трансформировать в монаду над списком значений
+
+sequence ms = foldr k (return []) ms where
+    k :: Monad m => m a -> m [a] -> m [a] -- operator Cons for list inside monad
+    k mx mxs = do
+        x <- mx
+        xs <- mxs
+        return (x : xs)
+
+ghci> :i Control.Monad.mapM
+type Traversable :: (* -> *) -> Constraint
+class (Functor t, Foldable t) => Traversable t where
+  Prelude.mapM :: Monad m => (a -> m b) -> t a -> m (t b) -- Defined in ‘Data.Traversable’
+-- стрелку К. применить к списку, получить монаду над списком значений
+
+mapM k = sequence . map k
+
+-- demo
+ghci> sequence [Just 1, Just 2]
+Just [1,2]
+ghci> sequence [Just 1, Nothing, Just 2]
+Nothing
+
+ghci> sequence ["ab", "cd", "ef"] -- 2*2*2
+["ace","acf","ade","adf","bce","bcf","bde","bdf"]
+
+ghci> sequence [getLine, getLine]
+foo
+bar
+["foo","bar"]
+
+ghci> sequence [putChar 'a', putChar '\n']
+a
+[(),()]
+
+ghci> mapM putChar "ab\n"
+ab
+[(),(),()]
+
+-- extra
+-- почему вывод `ab` а не `ba`?
+putChar 'a' >> (putChar 'b' >> return ()) -- ассоциативность правая генерирует лямбды, которые срабатывают слева-направо
+~>   putChar 'a' >>= \_ -> putChar 'b' >> return () 
+~>   \w -> case putChar 'a' w of (w',a) -> (\_ -> putChar 'b' >> return ()) a w'
+... -- на пат.мат. в case of срабатывает форсирование вычислений
 
 ```
 repl
+
+```hs
+https://stepik.org/lesson/8443/step/8?unit=1578
+TODO
+```
+test
+
+## chapter 5.6, Монада Reader
+
+https://stepik.org/lesson/8441/step/1?unit=1576
+
+- Простейший Reader
+- Универсальный Reader 1
+- Универсальный Reader 2
+
+
 
 Grep `TODO` markers, fix it. After that you're done.

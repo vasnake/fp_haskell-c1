@@ -122,6 +122,7 @@ type-class в Scala: параметризованный интерфейс, од
 [Функциональное программирование на языке Haskell (часть 2)](https://stepik.org/course/693/info) /
 https://stepik.org/693
 
+- https://wiki.haskell.org/Pronunciation
 - https://github.com/bitemyapp/learnhaskell/blob/master/guide-ru.md
 - https://hub.docker.com/_/haskell/tags
 - https://hoogle.haskell.org/?hoogle=isDigit&scope=set%3Ahaskell-platform
