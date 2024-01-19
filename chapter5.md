@@ -1628,6 +1628,264 @@ https://stepik.org/lesson/8442/step/1?unit=1577
 - Монада Writer
 - Интерфейс для монады Writer 
 
+### 5.7.2 Monad Writer
+
+Монада нужна для такого эффекта:
+запись (в лог), простая реализация которого через пару `(a, b)`
+где а это моноид лога (доступны бинарная операция свертки и нейтраль), бэ это наше вычисляемое значение.
+
+Как это может быть реализовано
+```hs
+import Data.Monoid
+
+-- алиас = конструктор { метка-доступа-к-внутреннему-значению }
+newtype Writer w a = Writer { runWriter :: (a, w) }
+runWriter :: Writer w a -> (a, w)
+-- w тип лога, a тип вычисляемого значения
+
+-- конструктор, для имитации стдлиб
+writer :: (a, w) -> Writer w a
+writer = Writer
+
+-- получить эффект и проигнорировать значение, хелпер
+execWriter :: Writer w a -> w
+execWriter m = snd (runWriter m)
+
+-- reminder
+import Control.Monad
+class Monad m where
+    return :: a -> m a
+    (>>=) :: m a -> (a -> m b) -> m b --  bind
+    (>>) :: m a -> m b -> m b -- then, sequence
+instance (Monoid w) => Functor (Writer w) where
+    fmap = liftM
+instance (Monoid w) => Applicative (Writer w) where
+    pure = return
+    (<*>) = ap
+-- end of reminder
+
+instance (Monoid w) => Monad (Writer w) where
+    return x = Writer (x, mempty) -- нейтральное значение лога
+    m >>= k = 
+        let -- монада и стрелка Клейсли на входе
+            (x1, w1) = runWriter m -- достали содержимое из монады
+            (x2, w2) = runWriter (k x1) -- вычисление
+        in Writer (x2, w1 `mappend` w2) -- накопление лога
+
+-- examples
+ghci> import Control.Monad.Writer
+
+-- лог: моноид строки
+ghci> runWriter (return 42 :: Writer String Int)
+(42,"") -- mempty = ""
+
+-- лог: моноид суммы чисел
+ghci> runWriter (return 42 :: Writer (Sum Int) Int)
+(42,Sum {getSum = 0})  -- mempty = 0
+
+-- лог: моноид произведения чисел
+ghci> runWriter (return 42 :: Writer (Product Int) Int)
+(42,Product {getProduct = 1}) -- mempty = 0
+
+-- вычислить и достать эффект
+ghci> execWriter (return 42 :: Writer (Product Int) Int)
+Product {getProduct = 1}
+```
+repl
+
+В стдлиб обычно используется соглашение: `runFoo` для запуска вычислений в монаде (и значение и эффекты),
+`execFoo` для получения эффектов от вычислений (значение игнорируется).
+
+```hs
+https://stepik.org/lesson/8442/step/3?unit=1577
+TODO
+```
+test
+
+```hs
+https://stepik.org/lesson/8442/step/4?unit=1577
+TODO
+```
+test
+
+### 5.7.5 функция tell
+
+Вспомогательные функции для монады Writer
+```hs
+-- функция записи в лог, по сути: заворачивание моноида в монаду Writer (стрелка Клейсли)
+-- позволяет писать в лог находясь внутри цепочки монадических вычислений
+-- tell (writer) vs ask (reader)
+tell :: (Monoid w) => w -> Writer w ()
+tell w = writer ((), w)
+
+-- ффект монады Writer - запись в лог
+-- При сцеплении двух монадических вычислений в этой монаде с помощью (>>=) или (>>) логи соединяются с помощью mappend
+ghci> runWriter $ tell "A" >> tell "B" >> tell "C"
+((),"ABC")
+
+-- example
+calc :: (Int -> Int -> Int) -> Int -> Int -> Writer String Int
+calc op x y = do
+    let res = x `op` y
+    tell $ (show x) ++ " op " ++ (show y) ++ " = " ++ (show res) ++ " " -- для иллюстрации аппенда лога
+    if abs res < 128 then
+        return res
+    else do
+        tell "overflow"
+        return res
+
+ghci> execWriter $ calc (+) 33 44
+""
+ghci> runWriter $ calc (+) 33 44
+(77,"")
+ghci> runWriter $ calc (+) 99 44
+(143,"overflow")
+
+-- лог аппендится
+ghci> runWriter $ calc (+) 33 44
+(77,"33 op 44 = 77")
+ghci> runWriter $ calc (+) 99 44
+(143,"99 op 44 = 143 overflow")
+```
+repl
+
+```hs
+https://stepik.org/lesson/8442/step/6?unit=1577
+TODO
+```
+test
+
+```hs
+https://stepik.org/lesson/8442/step/7?unit=1577
+TODO
+```
+test
+
+## chapter 5.8, Монада State
+
+https://stepik.org/lesson/8444/step/1?unit=1579
+
+- Монада State
+- Интерфейс для монады State
+- Программирование в монаде State
+
+### 5.8.2 Monad State
+
+Изменяемое состояние, сопровождающее цепочку монадических вычислений.
+Комбинация Reader, Writer.
+```hs
+-- имеем внутри стрелочный тип, как в Reader
+-- имеем внутри пару, как в Writer
+newtype State s a = State { runState :: s -> (a, s) } -- алиас вокруг стрелки `s -> (a,s)`
+runState :: State s a -> s -> (a, s) -- можно читать как "функция двух аргуметов, возвращает пару"
+runState :: State s a -> (s -> (a, s)) -- а можно как "функция одного аргумента, возвращает функцию одого аргумента"
+-- в любом прочтении, для получения результатов вычислений, надо скормить два параметра: ньютайп и затравку стейта
+
+class Monad m where
+    return :: a -> m a -- pure
+    (>>=) :: m a -> (a -> m b) -> m b --  bind
+    (>>) :: m a -> m b -> m b -- then, sequence
+
+instance Monad (State s) where
+    return a = State (\ st -> (a, st)) -- заворачиваем стрелку
+    return a = State $ \st -> (a, st) -- альтернативная запись
+    -- на входе (в bind) монада и стрелка Клейсли
+    m >>= k = State $ \ st1 -> -- заворачиваем стрелку
+        let
+            (a, st2) = runState m st1 -- первое вычисление
+            m2 = k a -- второе вычисление, очередность правильная
+        in runState m2 st2 -- st1 -> (m2, st2)
+
+-- два хелпера
+
+execState :: State s a -> s -> s -- интересует стейт на выходе
+execState m s = snd (runState m s)
+
+evalState :: State s a -> s -> a -- интересует значение на выходе
+evalState m s = fst (runState m s)
+```
+repl
+
+```hs
+https://stepik.org/lesson/8444/step/3?unit=1579
+TODO
+```
+test
+
+```hs
+https://stepik.org/lesson/8444/step/4?unit=1579
+TODO
+```
+test
+
+### 5.8.5 функции get, put, modify
+
+Стандартный интерфейс для монады State (get, put)
+чтение и запись эффекта (стейта)
+```hs
+-- завернутый в монаду id (как бы) -- ask
+get :: State s s
+get = State $ \ st -> (st, st) -- прокидывает внешний стейт
+
+-- стрелка Клейсли, -- tell
+put :: s -> State s ()
+put st = State $ \ _ -> ((), st) -- игнорирует внешний стейт, кладет в монаду новый
+
+-- examples
+
+ghci> import Control.Monad.State
+ghci> runState get 42
+(42,42)
+
+ghci> runState (put 7) 42
+((),7)
+
+-- при каждом использовании увеличивает счетчик
+tick :: State Int Int
+tick = do
+    n <- get -- получает стейт
+    put (n + 1) -- обновляет стейт
+    return n -- возвращает старый стейт как значение
+
+ghci> runState tick 5
+(5,6)
+
+-- modify, Kleisli arrow
+-- обновляет (put) стейт через переданную функцию трансформации стейта
+modify :: (s -> s) -> State s ()
+modify f = State $ \ s -> ((), f s) -- пакует стрелку из стейта в трансформированный-стейт
+modify f = do -- альтернативная реализация
+    s <- get
+    put (f s)
+
+ghci> runState (modify (^2)) 5
+((),25)
+ghci>
+```
+repl
+
+```hs
+https://stepik.org/lesson/8444/step/6?unit=1579
+TODO
+```
+test
+
+```hs
+https://stepik.org/lesson/8444/step/7?unit=1579
+TODO
+```
+test
+
+### 5.8.8
+https://stepik.org/lesson/8444/step/8?unit=1579
+```hs
+
+```
+repl
+
+
+
+
 
 
 Grep `TODO` markers, fix it. After that you're done.
