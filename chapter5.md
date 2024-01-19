@@ -87,12 +87,42 @@ repl
 ```hs
 https://stepik.org/lesson/8432/step/3?unit=2743
 TODO
+{--
+Определите представителя класса `Functor`
+для следующего типа данных
+представляющего точку в трёхмерном пространстве
+
+data Point3D a = Point3D a a a deriving Show
+
+GHCi> fmap (+ 1) (Point3D 5 6 7)
+Point3D 6 7 8
+--}
+instance Functor Point3D where
+    fmap = undefined
+
 ```
 test
 
 ```hs
 https://stepik.org/lesson/8432/step/4?unit=2743
 TODO
+{--
+Определите представителя класса `Functor`
+для типа данных `GeomPrimitive`
+
+data GeomPrimitive a = Point (Point3D a) | LineSegment (Point3D a) (Point3D a)
+
+При определении, воспользуйтесь тем, что `Point3D` уже является представителем класса `Functor`
+
+GHCi> fmap (+ 1) $ Point (Point3D 0 0 0)
+Point (Point3D 1 1 1)
+
+GHCi> fmap (+ 1) $ LineSegment (Point3D 0 0 0) (Point3D 1 1 1)
+LineSegment (Point3D 1 1 1) (Point3D 2 2 2)
+--}
+instance Functor GeomPrimitive where
+    fmap = undefined
+
 ```
 test
 
@@ -147,6 +177,20 @@ repl
 ```hs
 https://stepik.org/lesson/8432/step/6?unit=2743
 TODO
+{--
+Определите представителя класса `Functor` для бинарного дерева,
+в каждом узле которого хранятся элементы типа `Maybe`
+
+data Tree a = Leaf (Maybe a) | Branch (Tree a) (Maybe a) (Tree a) deriving Show
+
+GHCi> words <$> Leaf Nothing
+Leaf Nothing
+
+GHCi> words <$> Leaf (Just "a b")
+Leaf (Just ["a","b"])
+--}
+instance Functor Tree where
+    fmap = undefined
 ```
 test
 
@@ -241,6 +285,30 @@ repl
 ```hs
 https://stepik.org/lesson/8432/step/8?unit=2743
 TODO
+{--
+Определите представителя класса `Functor`
+для типов данных `Entry` и `Map`
+
+data Entry k1 k2 v = Entry (k1, k2) v  deriving Show
+data Map k1 k2 v = Map [Entry k1 k2 v]  deriving Show
+
+Тип Map представляет словарь, ключами которого являются пары
+
+В результате должно обеспечиваться следующее поведение:
+`fmap` применяет функцию к значениям в словаре, не изменяя при этом ключи
+
+GHCi> fmap (map toUpper) $ Map []
+Map []
+
+GHCi> fmap (map toUpper) $ Map [Entry (0, 0) "origin", Entry (800, 0) "right corner"]
+Map [Entry (0,0) "ORIGIN",Entry (800,0) "RIGHT CORNER"]
+--}
+instance Functor (Entry k1 k2) where
+    fmap = undefined
+
+instance Functor (Map k1 k2) where
+    fmap = undefined
+
 ```
 test
 
@@ -329,6 +397,41 @@ repl
 ```hs
 https://stepik.org/lesson/8437/step/3?unit=1572
 TODO
+{--
+Введём следующий тип:
+
+data Log a = Log [String] a
+
+Реализуйте вычисление с логированием, используя `Log`
+
+Для начала определите функцию `toLogger`
+которая превращает обычную функцию, в функцию с логированием
+
+toLogger :: (a -> b) -> String -> (a -> Log b)
+
+GHCi> let add1Log = toLogger (+1) "added one"
+GHCi> add1Log 3
+Log ["added one"] 4
+
+GHCi> let mult2Log = toLogger (* 2) "multiplied by 2"
+GHCi> mult2Log 3
+Log ["multiplied by 2"] 6
+
+Далее, определите функцию `execLoggers`
+Которая принимает некоторый элемент и две функции с логированием
+`execLoggers` возвращает результат последовательного применения функций к элементу и
+список сообщений, которые были выданы при применении каждой из функций
+
+execLoggers :: a -> (a -> Log b) -> (b -> Log c) -> Log c
+
+GHCi> execLoggers 3 add1Log mult2Log
+Log ["added one","multiplied by 2"] 8
+--}
+toLogger :: (a -> b) -> String -> (a -> Log b)
+toLogger f msg = undefined
+
+execLoggers :: a -> (a -> Log b) -> (b -> Log c) -> Log c
+execLoggers x f g = undefined
 ```
 test
 
@@ -400,6 +503,20 @@ repl
 ```hs
 https://stepik.org/lesson/8437/step/5?unit=1572
 TODO
+{--
+Функции с логированием из предыдущего задания возвращают в качестве результата
+значение с некоторой дополнительной информацией в виде списка сообщений
+Этот список является контекстом.
+
+Реализуйте функцию `returnLog`
+которая является аналогом функции `return` для контекста `Log`
+Данная функция должна возвращать переданное ей значение с пустым контекстом
+
+returnLog :: a -> Log a
+--}
+returnLog :: a -> Log a
+returnLog = undefined
+
 ```
 test
 
@@ -462,12 +579,48 @@ repl
 ```hs
 https://stepik.org/lesson/8437/step/7?unit=1572
 TODO
+{--
+Реализуйте фукцию `bindLog`
+которая работает подобно оператору `>>=` для контекста `Log`
+
+bindLog :: Log a -> (a -> Log b) -> Log b
+
+GHCi> Log ["nothing done yet"] 0 `bindLog` add1Log
+Log ["nothing done yet","added one"] 1
+
+GHCi> Log ["nothing done yet"] 3 `bindLog` add1Log `bindLog` mult2Log
+Log ["nothing done yet","added one","multiplied by 2"] 8
+--}
+bindLog :: Log a -> (a -> Log b) -> Log b
+bindLog = undefined
+
 ```
 test
 
 ```hs
 https://stepik.org/lesson/8437/step/8?unit=1572
 TODO
+{--
+Реализованные ранее `returnLog` и `bindLog` позволяют объявить тип `Log` представителем класса `Monad`
+
+instance Monad Log where
+    return = returnLog
+    (>>=) = bindLog
+
+Используя `return` и `>>=`, определите функцию `execLoggersList`
+которая принимает некоторый элемент, 
+список функций с логированием и 
+возвращает результат последовательного применения всех функций в списке к переданному элементу 
+вместе со списком сообщений, которые возвращались данными функциями
+
+execLoggersList :: a -> [a -> Log a] -> Log a
+
+GHCi> execLoggersList 3 [add1Log, mult2Log, \x -> Log ["multiplied by 100"] (x * 100)]
+Log ["added one","multiplied by 2","multiplied by 100"] 800
+--}
+execLoggersList :: a -> [a -> Log a] -> Log a
+execLoggersList = undefined
+
 ```
 test
 
@@ -576,6 +729,22 @@ repl
 ```hs
 https://stepik.org/lesson/8438/step/3?unit=1573
 TODO
+{--
+Если некоторый тип является представителем класса `Monad`
+то его можно сделать представителем класса `Functor`
+используя функцию `return` и оператор `>>=`
+Причём, это можно сделать даже не зная, как данный тип устроен
+
+Пусть вам дан тип 
+и он является представителем класса `Monad`
+
+data SomeType a = ...
+
+Сделайте его представителем класса `Functor`
+--}
+instance Functor SomeType where
+    fmap f x = undefined
+
 ```
 test
 
@@ -699,18 +868,62 @@ repl
 ```hs
 https://stepik.org/lesson/8438/step/6?unit=1573
 TODO
+{--
+Вспомним тип `Log`
+который мы сделали монадой в предыдущем модуле
+
+data Log a = Log [String] a
+
+Функция `return` для `Log` оборачивает переданное значение в лог с пустым списком сообщений. 
+Оператор `>>=` возвращает лог с модифицированным значением и новым списком сообщений, 
+который состоит из прежнего списка и добавленного в конец списка сообщений, полученных при модификации значения
+
+Пусть теперь функция `return` будет оборачивать переданное значение в список
+содержащий одно стандартное сообщение "Log start"
+
+Выберите верные утверждения относительно выполнения законов для монады с новым поведением функции `return`
+--}
+- Не выполняется первый закон
+- Не выполняется второй закон
+- Не выполняется третий закон
+- Все законы выполняются 
+
 ```
 test
 
 ```hs
 https://stepik.org/lesson/8438/step/7?unit=1573
 TODO
+{--
+родолжим обсуждать монаду для `Log`
+Пусть теперь у нас будет новая версия оператора `>>=`
+которая будет добавлять сообщения не в конец результирующего списка, а в начало
+(при этом функция `return` предполагается возвращенной к исходной реализации)
+
+Выберите верные утверждения относительно выполнения законов для монады с новым поведением оператора `>>=`
+--}
+- Не выполняется первый закон
+- Не выполняется второй закон
+- Не выполняется третий закон
+- Все законы выполняются 
+
 ```
 test
 
 ```hs
 https://stepik.org/lesson/8438/step/8?unit=1573
 TODO
+{--
+И снова монада `Log`
+Пусть теперь оператор `>>=` будет добавлять сообщения как в начало списка, так и в конец
+
+Выберите верные утверждения относительно выполнения законов для монады с новым поведением оператора `>>=`
+--}
+- Не выполняется 1-й закон
+- Не выполняется 2-й закон
+- Не выполняется 3-й закон
+- Все законы выполняются 
+
 ```
 test
 
@@ -972,6 +1185,56 @@ repl
 ```hs
 https://stepik.org/lesson/8439/step/4?unit=1574
 TODO
+{--
+Рассмотрим язык арифметических выражений, которые состоят из чисел, скобок, операций сложения и вычитания
+Конструкции данного языка можно представить следующим типом данных
+
+data Token = Number Int | Plus | Minus | LeftBrace | RightBrace 
+    deriving (Eq, Show)
+
+Реализуйте лексер арифметических выражений.
+
+Для начала реализуйте следующую функцию:
+Она проверяет, является ли переданная строка числом (используйте функцию `isDigit` из модуля `Data.Char`), 
+знаком "+" или "-", открывающейся или закрывающейся скобкой. 
+Если является, то она возвращает нужное значение обёрнутое в `Just`, в противном случае - `Nothing`
+
+asToken :: String -> Maybe Token
+
+GHCi> asToken "123"
+Just (Number 123)
+
+GHCi> asToken "abc"
+Nothing
+
+Далее, реализуйте функцию `tokenize`
+Функция принимает на вход строку и если каждое слово является корректным токеном, 
+то она возвращает список этих токенов, завёрнутый в `Just`. 
+В противном случае возвращается `Nothing`
+Функция должна разбивать входную строку на отдельные слова по пробелам (используйте библиотечную функцию `words`). 
+Далее, полученный список строк должен быть свёрнут с использованием функции `asToken` и свойств монады `Maybe`
+
+tokenize :: String -> Maybe [Token]
+
+GHCi> tokenize "1 + 2"
+Just [Number 1,Plus,Number 2]
+
+GHCi> tokenize "1 + ( 7 - 2 )" -- Обратите внимание, что скобки отделяются пробелами от остальных выражений!
+Just [Number 1,Plus,LeftBrace,Number 7,Minus,Number 2,RightBrace]
+
+GHCi> tokenize "1 + abc"
+Nothing
+--}
+
+-- data Token = Number Int | Plus | Minus | LeftBrace | RightBrace     
+--     deriving (Eq, Show)
+-- Тип Token уже объявлен, его писать не нужно
+
+asToken :: String -> Maybe Token
+asToken = undefined
+
+tokenize :: String -> Maybe [Token]
+tokenize input = undefined
 ```
 test
 
@@ -1042,6 +1305,30 @@ repl
 ```hs
 https://stepik.org/lesson/8439/step/6?unit=1574
 TODO
+{--
+Пусть имеется тип данных, который описывает конфигурацию шахматной доски
+
+data Board = ...
+
+Кроме того, пусть задана функция
+которая получает на вход некоторую конфигурацию доски и 
+возвращает все возможные конфигурации, которые могут получиться, если какая-либо фигура сделает один ход
+
+nextPositions :: Board -> [Board]
+
+Напишите функцию
+которая принимает конфигурацию доски, число ходов `n`, предикат и 
+возвращает все возможные конфигурации досок, которые могут получиться, 
+если фигуры сделают `n` ходов и которые удовлетворяют заданному предикату. 
+При `n < 0` функция возвращает пустой список. 
+
+nextPositionsN :: Board -> Int -> (Board -> Bool) -> [Board]
+--}
+
+--Тип Board и функция nextPositions заданы, реализовывать их не нужно
+nextPositionsN :: Board -> Int -> (Board -> Bool) -> [Board]
+nextPositionsN b n pred = do undefined
+
 ```
 test
 
@@ -1087,6 +1374,30 @@ repl
 ```hs
 https://stepik.org/lesson/8439/step/8?unit=1574
 TODO
+{--
+Используя монаду списка и do-нотацию, реализуйте функцию
+которая принимает на вход некоторое число `x` и возвращает список троек `(a,b,c)`
+таких что
+
+a^2 + b^2 = c^2,
+a > 0,  b > 0,  c > 0,  c ≤ x,  a < b
+
+pythagoreanTriple :: Int -> [(Int, Int, Int)]
+
+Число `x` может быть `≤ 0` , на таком входе должен возвращаться пустой список
+
+GHCi> pythagoreanTriple 5
+[(3,4,5)]
+
+GHCi> pythagoreanTriple 0
+[]
+
+GHCi> pythagoreanTriple 10
+[(3,4,5),(6,8,10)]
+--}
+pythagoreanTriple :: Int -> [(Int, Int, Int)]
+pythagoreanTriple x = do undefined
+
 ```
 test
 
