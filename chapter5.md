@@ -1876,15 +1876,68 @@ TODO
 ```
 test
 
-### 5.8.8
-https://stepik.org/lesson/8444/step/8?unit=1579
-```hs
+### 5.8.8 examples, replicateM
 
+Примеры на базе `tick`
+```hs
+tick :: State Int Int
+tick = do
+    n <- get
+    put (n + 1)
+    return n
+
+ghci> runState tick 5
+(5,6) -- предыдущее значение в качестве "значения"
+
+ghci> execState tick 5
+6
+
+succ :: Int -> Int
+succ n = execState tick n
+
+plus :: Int -> Int -> Int
+plus n x = execState (sequence (replicate n tick)) x
+-- replicate n tick -- list
+-- sequence (replicate n tick) -- список монад в монаду списка
+-- идея в том, чтобы эн раз добавить единицу через превращение списка в цепочку монадических тиков
+-- стартовое значение будет х
+
+ghci> runState (sequence (replicate 4 tick)) 5
+([5,6,7,8],9) -- список значений цепочки монад.вычислений, эффект (стейт) = 9
+
+ghci> runState (sequence_ (replicate 4 tick)) 5
+((),9)
+
+-- настолько часто используется для порождения цепочки монад.вычислений
+sequence $ replicate n
+-- что сделали отдельную функцию
+replicateM n = sequence . replicate n
+
+ghci> :i replicateM
+replicateM :: Applicative m => Int -> m a -> m [a] -- Defined in ‘Control.Monad’
+
+plus n x = execState (replicateM n tick) x
+
+ghci> runState (replicateM 4 tick) 5
+([5,6,7,8],9)
 ```
 repl
 
+К этому моменту должно быть понятно, что, поскольку монады это интерфейсы и законы для тайп-классов,
+мы можем части программы заворачивать в монадические вычисления и компоновать их всяко.
+Абстракция вычислений с эффектами, стандартные интерфейсы -- инструменты ФП модуляризации программ.
 
+```hs
+https://stepik.org/lesson/8444/step/9?unit=1579
+TODO
+```
+test
 
+```hs
+https://stepik.org/lesson/8444/step/10?unit=1579
+TODO
+```
+test
 
 
 
