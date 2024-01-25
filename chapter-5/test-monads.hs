@@ -240,6 +240,8 @@ execLoggersList x = foldl (>>=) (return x)
 
 test13 = execLoggersList 3 [add1Log, mult2Log, \x -> Log ["multiplied by 100"] (x * 100)] -- Log ["added one","multiplied by 2","multiplied by 100"] 800
 
+
+
 -- reference
 {--
 
@@ -258,6 +260,13 @@ class Functor f where
 -- 2) fmap (f . g) = (fmap f) . (fmap g) -- композиция лифтов заменяется на 1 лифт композиции функций, типа оптимизация
 второй закон опционален в Хаскел, он следует из первого при условии полиморфности функтора
 
+-- для реализации монады нужно реализовать функтор и аппликатив
+instance Functor Identity where
+  fmap  f (Identity x) = Identity (f x) -- fmap :: (a -> b) -> f a -> f b
+instance Applicative Identity where
+  pure x = Identity x -- Monad return  
+  (Identity f) <*> (Identity v) = Identity (f v) -- "applied over", infixl 4 <*>, <*> :: f (a -> b) -> f a -> f b
+
 class Monad m where
     return :: a -> m a -- pure
     (>>=) :: m a -> (a -> m b) -> m b --  bind, infixl
@@ -271,6 +280,13 @@ class Monad m where
 m >>= return        =    m
 -- третий закон, ассоциативность bind (скобки опциональны, и без них корректно)
 (m >>= k) >>= k'    =   m >>= (\ x -> k x >>= k')
+
+-- первый и второй законы отражают "тривиальную" природу оператора `return`
+-- он не выполняет эффектов и не меняет значение
+
+-- третий закон (ассоциативность), несколько хитрее: порядок операций не меняется, но лямбды влияют на "накопление" эффектов.
+-- Накопление эффектов должно быть ассоциативно. 
+-- Если эффект - это список строк лога, то надо понимать, что конкатенация списков должна быть ассоциативна.
 
 -- оператор амперсанд (евро) очень похож на монадический байнд -- лево-ассоциативный и порядок аргументов такой же
 ghci> import Data.Function
