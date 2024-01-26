@@ -3,6 +3,7 @@ module TestMonads where
 -- import Data.Char (toUpper)
 import Data.Char
 import Control.Monad
+import Text.Read (readMaybe)
 
 {--
 Ideas testing sandbox, various snippets, tests
@@ -234,12 +235,169 @@ instance Monad Log where
     (>>=) = bindLog
 
 execLoggersList :: a -> [a -> Log a] -> Log a
-execLoggersList x = foldl (>>=) (return x) 
+execLoggersList x = foldl (>>=) (return x)
 -- execLoggersList = foldl (>>=) . return
 -- foldl :: (b -> a -> b) -> b -> [a] -> b
 
 test13 = execLoggersList 3 [add1Log, mult2Log, \x -> Log ["multiplied by 100"] (x * 100)] -- Log ["added one","multiplied by 2","multiplied by 100"] 800
 
+
+
+
+{--
+Рассмотрим язык арифметических выражений, которые состоят из чисел, скобок, операций сложения и вычитания
+Конструкции данного языка можно представить следующим типом данных
+
+data Token = Number Int | Plus | Minus | LeftBrace | RightBrace 
+    deriving (Eq, Show)
+
+Реализуйте лексер арифметических выражений.
+
+Для начала реализуйте функцию `asToken`:
+Она проверяет, является ли переданная строка числом (используйте функцию `isDigit` из модуля `Data.Char`), 
+знаком "+" или "-", открывающейся или закрывающейся скобкой. 
+Если является, то она возвращает нужное значение обёрнутое в `Just`, в противном случае - `Nothing`
+
+asToken :: String -> Maybe Token
+
+GHCi> asToken "123"
+Just (Number 123)
+GHCi> asToken "abc"
+Nothing
+
+Далее, реализуйте функцию `tokenize`
+Функция принимает на вход строку и если каждое слово является корректным токеном, 
+то она возвращает список этих токенов, завёрнутый в `Just`. 
+В противном случае возвращается `Nothing`
+Функция должна разбивать входную строку на отдельные слова по пробелам (используйте библиотечную функцию `words`). 
+Далее, полученный список строк должен быть свёрнут с использованием функции `asToken` и свойств монады `Maybe`
+
+tokenize :: String -> Maybe [Token]
+
+GHCi> tokenize "1 + 2"
+Just [Number 1,Plus,Number 2]
+GHCi> tokenize "1 + ( 7 - 2 )" -- Обратите внимание, что скобки отделяются пробелами от остальных выражений!
+Just [Number 1,Plus,LeftBrace,Number 7,Minus,Number 2,RightBrace]
+GHCi> tokenize "1 + abc"
+Nothing
+--}
+
+data Token = Number Int | Plus | Minus | LeftBrace | RightBrace
+    deriving (Eq, Show)
+-- Тип Token уже объявлен, его писать не нужно
+
+-- import Text.Read (readMaybe)
+asToken :: String -> Maybe Token
+asToken "+" = Just Plus
+asToken "-" = Just Minus
+asToken "(" = Just LeftBrace
+asToken ")" = Just RightBrace
+asToken x = readMaybe x >>= (Just . Number)
+-- asToken x = if all Data.Char.isDigit x then Just $ Number (read x) else Nothing
+-- readMaybe :: Read a => String -> Maybe a        -- Defined in ‘Text.Read’
+
+tokenize :: String -> Maybe [Token]
+tokenize str = sequence listMaybeTokens where
+    wordList = words str
+    listMaybeTokens = map asToken wordList
+-- sequence :: Monad m => [m a] -> m [a] -- Defined in ‘Data.Traversable’
+
+test14 = asToken "123" -- Just (Number 123)
+test15 = asToken "abc" -- Nothing
+
+test16 = tokenize "1 + 2" -- Just [Number 1,Plus,Number 2]
+test17 = tokenize "1 + ( 7 - 2 )" -- Just [Number 1,Plus,LeftBrace,Number 7,Minus,Number 2,RightBrace]
+-- Обратите внимание, что скобки отделяются пробелами от остальных выражений!
+test18 = tokenize "1 + abc" -- Nothing
+
+
+{--
+Пусть имеется тип данных, который описывает конфигурацию шахматной доски
+
+data Board = ...
+
+Кроме того, пусть задана функция `nextPositions`
+которая получает на вход некоторую конфигурацию доски и 
+возвращает все возможные конфигурации, которые могут получиться, если какая-либо фигура сделает один ход
+
+nextPositions :: Board -> [Board]
+
+Напишите функцию `nextPositionsN`
+которая принимает конфигурацию доски, число ходов `n`, предикат `p` и 
+возвращает все возможные конфигурации досок, которые могут получиться, 
+если фигуры сделают `n` ходов и которые удовлетворяют заданному предикату. 
+При `n < 0` функция возвращает пустой список. 
+
+nextPositionsN :: Board -> Int -> (Board -> Bool) -> [Board]
+--}
+
+data Board = String
+nextPositions :: Board -> [Board]
+nextPositions x = [x, x]
+
+--Тип Board и функция nextPositions заданы, реализовывать их не нужно
+nextPositionsN :: Board -> Int -> (Board -> Bool) -> [Board]
+nextPositionsN b n pred
+    | n < 0 = []
+    | n == 0 = [b | pred b] -- терминальное условие рекурсии, эти значения пойдут в результат
+    | otherwise = do
+        board <- nextPositions b -- first loop
+        nextPositionsN board (n - 1) pred -- inner loop, рекурсия
+{--
+логика:
+на каждом ходе происходит ветвление предыдущих позиций
+каждая позиция порождает эм новых
+
+> фильтруйте только конечный набор состояний,  и не проверяйте промежуточные результаты
+предикат - это оценочная функция, она отбрасывает слабые варианты
+функция nextPositions рассматривает все легальные продолжения
+
+тестов нет, поэтому перебором нащупано такое решение
+--}
+
+
+{--
+Используя монаду списка и do-нотацию, реализуйте функцию `pythagoreanTriple`
+которая принимает на вход некоторое число `x` и возвращает список троек `(a,b,c)`
+таких что
+
+a^2 + b^2 = c^2,
+a > 0,  b > 0,  c > 0,  c ≤ x,  a < b
+
+pythagoreanTriple :: Int -> [(Int, Int, Int)]
+
+Число `x` может быть `≤ 0` , на таком входе должен возвращаться пустой список
+
+GHCi> pythagoreanTriple 5
+[(3,4,5)]
+
+GHCi> pythagoreanTriple 0
+[]
+
+GHCi> pythagoreanTriple 10
+[(3,4,5),(6,8,10)]
+--}
+
+-- принимает на вход некоторое число `x` и возвращает список троек `(a,b,c)`
+-- a^2 + b^2 = c^2, -- катет всегда меньше гипотенузы, которая в свою очередь ограничена сверху
+-- a > 0,  b > 0,  c > 0,  c ≤ x,  a < b
+-- `x` может быть `≤ 0` , на таком входе должен возвращаться пустой список
+pythagoreanTriple :: Int -> [(Int, Int, Int)]
+pythagoreanTriple x = do
+    c <- allC
+    a <- allA
+    b <- allB
+    [42 | x > 0 && allConditionsTrue a b c]
+    return (a, b, c) where
+        allA = [1 .. x]
+        allB = [1 .. x]
+        allC = [1 .. x]
+        allConditionsTrue a b c = a < b && (a^2 + b^2) == c^2 && a < c && b < c
+-- задачка на предыдущую тему "if then else внутри цепочки монад.вычислений"
+
+test19 = pythagoreanTriple 5 -- [(3,4,5)]
+test20 = pythagoreanTriple 0 -- []
+test21 = pythagoreanTriple 10 -- [(3,4,5),(6,8,10)]
 
 
 -- reference
