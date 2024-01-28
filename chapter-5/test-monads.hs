@@ -4,6 +4,9 @@ module TestMonads where
 import Data.Char
 import Control.Monad
 import Text.Read (readMaybe)
+-- import Text.Parsec.Prim (putState)
+-- import Data.List (isInfixOf)
+import Data.List as L
 
 {--
 Ideas testing sandbox, various snippets, tests
@@ -398,6 +401,142 @@ pythagoreanTriple x = do
 test19 = pythagoreanTriple 5 -- [(3,4,5)]
 test20 = pythagoreanTriple 0 -- []
 test21 = pythagoreanTriple 10 -- [(3,4,5),(6,8,10)]
+
+
+{--
+На этом шаге вы будете работать с монадой `IO`
+значит, ваша программа будет взаимодействовать с операционной системой.
+Чтобы тестирующая система смогла оценить вашу программу, пожалуйста, 
+используйте только функции, осуществляющие ввод/вывод на терминал
+
+getChar, putChar, putStr, putStrLn, getLine
+
+Все эти функции уже будут находиться в области видимости, так что вам не следует их импортировать.
+
+По той же причине, главная функция вашей программы будет называться не `main`, а `main'` (со штрихом)
+
+Напишите программу, которая будет спрашивать имя пользователя
+а затем приветствовать его по имени
+если пользователь не ввёл имя, программа должна спросить его повторно, и 
+продолжать спрашивать, до тех пор, пока пользователь не представится
+
+Итак, первым делом, программа спрашивает имя:
+
+What is your name?
+Name: 
+
+Пользователь вводит имя и программа приветствует его:
+
+What is your name?
+Name: Valera
+Hi, Valera!
+
+Если же пользователь не ввёл имя, необходимо отобразить точно такое же приглашение ещё раз:
+
+What is your name?
+Name: 
+What is your name?
+Name: 
+What is your name?
+Name: Valera
+Hi, Valera!
+
+строго соблюдайте приведенный в примере формат вывода. 
+Особое внимание уделите пробелам и переводам строк! 
+Не забудьте про пробел после `Name:`, а также про перевод строки в самом конце 
+ожидается, что вы будете использовать `putStrLn` для вывода приветствия пользователя
+--}
+{-- solution
+main' :: IO ()
+main' = do
+    putStrLn "What is your name?"
+    putStr "Name: "
+    name <- getLine
+    if null name then main' else putStrLn $ "Hi, " ++ name ++ "!"
+--}
+
+
+{--
+На этом шаге вы будете работать с монадой IO, а значит, ваша программа будет взаимодействовать с операционной системой
+Чтобы тестирующая система смогла оценить вашу программу, пожалуйста, используйте только функции, 
+работающие с файлами и директориями
+
+getDirectoryContents, removeFile
+
+Все эти функции уже будут находиться в области видимости,
+так что вам не следует их импортировать. 
+По той же причине, главная функция вашей программы будет называться не `main`, а `main'` (со штрихом).
+
+В этом задании ваша программа должна попросить пользователя ввести любую строку, 
+а затем удалить все файлы в текущей директории, в именах которых содержится эта строка,
+выдавая при этом соответствующие сообщения
+
+Substring: 
+
+Пользователь вводит любую строку:
+
+Substring: hell
+
+Затем программа удаляет из текущей директории файлы с введенной подстрокой в названии.
+
+К примеру, если в текущей директории находились файлы 
+thesis.txt, kitten.jpg, hello.world, linux_in_nutshell.pdf,
+то вывод будет таким:
+
+Substring: hell
+Removing file: hello.world
+Removing file: linux_in_nutshell.pdf
+
+Если же пользователь ничего не ввёл (просто нажал Enter), следует ничего не удалять и сообщить об этом
+
+Substring: 
+Canceled
+
+Для получения списка файлов в текущей директории используйте функцию `getDirectoryContents`
+https://hackage.haskell.org/package/directory-1.2.3.1/docs/System-Directory.html#v:getDirectoryContents
+передавая ей в качестве аргумента строку, состоящую из одной точки  ("."), что означает «текущая директория»
+
+Для удаления файлов используйте функцию `removeFile`
+https://hackage.haskell.org/package/directory-1.2.3.1/docs/System-Directory.html#v:removeFile
+считайте, что в текущей директории нет поддиректорий — только простые файлы
+
+В выводимых сообщениях удаленные файлы должны быть перечислены в том же порядке, в котором их возвращает функция `getDirectoryContents`
+
+Пожалуйста, строго соблюдайте приведенный в примере формат вывода.
+Особое внимание уделите пробелам и переводам строк!
+Не забудьте про пробел после Substring:, а также про перевод строки в конце.
+ожидается, что вы будете использовать putStrLn для вывода сообщений об удалении
+--}
+main' :: IO ()
+main' = do
+    putStr "Substring: "
+    substr <- getLine
+    if null substr then putStrLn "Canceled" else removeFiles substr
+
+removeFiles :: String -> IO ()
+removeFiles substr = do
+    names <- getFiles
+    mapM_ (removeMatchingFile substr) names
+
+-- getDirectoryContents :: FilePath -> IO [FilePath]
+-- type FilePath = String
+getFiles =
+    return ["thesis.txt", "kitten.jpg", "hello.world", "linux_in_nutshell.pdf"]
+    -- getDirectoryContents "."
+
+-- removeFile :: FilePath -> IO ()
+-- removeMatchingFile :: String -> String -> IO ()
+removeMatchingFile substr fileName = do
+    if fileName `contains` substr then doRemoveFile else skipRemoval where
+        skipRemoval = return ()
+        doRemoveFile = do
+            putStrLn $ "Removing file: " ++ fileName
+            return () 
+            -- removeFile fileName
+
+-- import Data.List (isInfixOf)
+-- isInfixOf :: Eq a => [a] -> [a] -> Bool
+contains fileName substr = substr `L.isInfixOf` fileName
 
 
 -- reference
