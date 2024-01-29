@@ -3,10 +3,12 @@ module TestMonads where
 -- import Data.Char (toUpper)
 import Data.Char
 import Control.Monad
+-- import Control.Monad (liftM, ap)
 import Text.Read (readMaybe)
 -- import Text.Parsec.Prim (putState)
 -- import Data.List (isInfixOf)
 import Data.List as L
+import Control.Applicative
 
 {--
 Ideas testing sandbox, various snippets, tests
@@ -531,13 +533,69 @@ removeMatchingFile substr fileName = do
         skipRemoval = return ()
         doRemoveFile = do
             putStrLn $ "Removing file: " ++ fileName
-            return () 
+            return ()
             -- removeFile fileName
 
 -- import Data.List (isInfixOf)
 -- isInfixOf :: Eq a => [a] -> [a] -> Bool
 contains fileName substr = substr `L.isInfixOf` fileName
 
+
+{--
+Вспомним пример с базой пользователей и паролей
+
+type User = String
+type Password = String
+type UsersTable = [(User, Password)]
+
+Реализуйте функцию, принимающую в качестве окружения `UsersTable`
+и возвращающую список пользователей, использующих пароль "123456"
+в том же порядке, в котором они перечислены в базе
+
+GHCi> runReader usersWithBadPasswords [("user", "123456"), ("x", "hi"), ("root", "123456")]
+["user","root"]
+--}
+
+newtype Reader r a = Reader { runReader :: (r -> a) } -- завернули стрелку в тип `Reader r a`, двухпараметрический
+
+instance Functor (Reader r) where
+    fmap = liftM
+instance Applicative (Reader r) where
+    pure  = return
+    (<*>) = ap
+instance Monad (Reader r) where
+    return x = Reader (\ e -> x)
+    m >>= k  = Reader (\ e ->
+        let x = runReader m e
+        in runReader (k x) e)
+
+ask :: Reader r r -- `r -> r`, фактически и есть `id`
+ask = Reader id
+
+asks :: (r -> a) -> Reader r a
+asks = Reader -- конструктор ридера из аргумента-функции
+
+local :: (r -> r) -> Reader r a -> Reader r a
+local f mr = Reader (runReader mr . f)
+
+reader :: (r -> a) -> Reader r a
+reader f = do
+    r <- ask
+    return (f r)
+
+type User = String
+type Password = String
+type UsersTable = [(User, Password)]
+
+usersWithBadPasswords :: Reader UsersTable [User]
+usersWithBadPasswords = asks (map fst . selected) where
+    selected = filter (\ (_, pwd) -> pwd == "123456")
+
+-- Реализуйте функцию, принимающую в качестве окружения `UsersTable`
+-- и возвращающую список пользователей, использующих пароль "123456"
+-- в том же порядке, в котором они перечислены в базе
+
+test22 = runReader usersWithBadPasswords [("user", "123456"), ("x", "hi"), ("root", "123456")] -- ["user","root"]
 
 -- reference
 {--
