@@ -2,7 +2,9 @@ module TestMonads where
 -- import Text.PrettyPrint.Annotated.HughesPJ (AnnotDetails(NoAnnot))
 -- import Data.Char (toUpper)
 import Data.Char
+import Data.Monoid
 import Control.Monad
+import Control.Monad.Writer ( Writer, writer, runWriter, execWriter, tell )
 -- import Control.Monad (liftM, ap)
 import Text.Read (readMaybe)
 -- import Text.Parsec.Prim (putState)
@@ -597,8 +599,103 @@ usersWithBadPasswords = asks (map fst . selected) where
 
 test22 = runReader usersWithBadPasswords [("user", "123456"), ("x", "hi"), ("root", "123456")] -- ["user","root"]
 
+
+{--
+Давайте разработаем программное обеспечение для кассовых аппаратов одного исландского магазина
+Заказчик собирается описывать товары, купленные покупателем, с помощью типа `Shopping` следующим образом
+
+type Shopping = Writer (Sum Integer) ()
+
+shopping1 :: Shopping
+shopping1 = do
+  purchase "Jeans"   19200
+  purchase "Water"     180
+  purchase "Lettuce"   328
+
+Последовательность приобретенных товаров записывается с помощью `do`-нотации
+Для этого используется функция `purchase`
+которую вам предстоит реализовать
+
+Эта функция принимает наименование товара, а также его стоимость в исландских кронах 
+(исландскую крону не принято делить на меньшие единицы, потому используется целочисленный тип Integer)
+Кроме того, вы должны реализовать функцию `total`:
+
+GHCi> total shopping1 
+19708
+--}
+
+-- import Data.Monoid
+-- import Control.Monad
+-- import Control.Monad.Writer ( Writer, writer, runWriter, tell )
+
+{--
+type Shopping = Writer (Sum Integer) ()
+
+purchase :: String -> Integer -> Shopping
+purchase item cost = do
+    tell $ Sum cost
+
+total :: Shopping -> Integer
+-- total = getSum . snd . runWriter
+total = getSum . execWriter
+
+shopping1 :: Shopping
+shopping1 = do
+  purchase "Jeans"   19200
+  purchase "Water"     180
+  purchase "Lettuce"   328
+
+test23 = total shopping1 -- 19708
+--}
+
+
+{--
+Измените определение типа `Shopping` и доработайте функцию `purchase`
+из предыдущего задания таким образом, чтобы можно было реализовать функцию `items`
+возвращающую список купленных товаров 
+(в том же порядке, в котором они были перечислены при покупке):
+
+shopping1 :: Shopping
+shopping1 = do
+  purchase "Jeans"   19200
+  purchase "Water"     180
+  purchase "Lettuce"   328
+
+GHCi> total shopping1 
+19708
+GHCi> items shopping1
+["Jeans","Water","Lettuce"]
+
+Реализуйте функцию `items` и исправьте функцию `total`, чтобы она работала как и прежде
+--}
+type Shopping = Writer (Sum Integer, [String]) ()
+
+purchase :: String -> Integer -> Shopping
+purchase item cost = do
+    tell (Sum cost, [item])
+
+total :: Shopping -> Integer
+total = getSum . fst . execWriter
+
+items :: Shopping -> [String]
+items = snd . execWriter
+
+shopping1 :: Shopping
+shopping1 = do
+  purchase "Jeans"   19200
+  purchase "Water"     180
+  purchase "Lettuce"   328
+
+test23 = total shopping1 -- 19708
+test24 = items shopping1 -- ["Jeans","Water","Lettuce"]
+
+
 -- reference
 {--
+
+newtype Writer w a = Writer { runWriter :: (a, w) } -- n.b. флипнуты типы
+runWriter :: Writer w a -> (a, w)
+writer :: (a, w) -> Writer w a
 
 -- type-class, полностью полиморфный, без ограничений на типы (переменные типов) a, b, f
 -- класс типов параметризован переменной (типа) `f`

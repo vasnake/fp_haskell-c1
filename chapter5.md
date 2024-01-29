@@ -2579,15 +2579,13 @@ https://stepik.org/lesson/8442/step/1?unit=1577
 ### 5.7.2 Monad Writer
 
 Монада нужна для такого эффекта:
-запись (в лог), простая реализация которого через пару `(a, b)`
-где а это моноид лога (доступны бинарная операция свертки и нейтраль), бэ это наше вычисляемое значение.
+запись (в лог), простая реализация которого выполнена через пару `(a, b)`
+где `a` это моноид лога (доступны бинарная операция свертки и нейтраль), `b` это наше вычисляемое значение.
 
 Как это может быть реализовано
 ```hs
-import Data.Monoid
-
 -- алиас = конструктор { метка-доступа-к-внутреннему-значению }
-newtype Writer w a = Writer { runWriter :: (a, w) }
+newtype Writer w a = Writer { runWriter :: (a, w) } -- n.b. флипнуты типы
 runWriter :: Writer w a -> (a, w)
 -- w тип лога, a тип вычисляемого значения
 
@@ -2599,8 +2597,9 @@ writer = Writer
 execWriter :: Writer w a -> w
 execWriter m = snd (runWriter m)
 
--- reminder
+-- reference
 import Control.Monad
+import Data.Monoid
 class Monad m where
     return :: a -> m a
     (>>=) :: m a -> (a -> m b) -> m b --  bind
@@ -2610,17 +2609,20 @@ instance (Monoid w) => Functor (Writer w) where
 instance (Monoid w) => Applicative (Writer w) where
     pure = return
     (<*>) = ap
--- end of reminder
+-- end of reference
+
+-- монада Writer
 
 instance (Monoid w) => Monad (Writer w) where
-    return x = Writer (x, mempty) -- нейтральное значение лога
-    m >>= k = 
+    return x = writer (x, mempty) -- нейтральное значение лога
+    m >>= k = -- bind
         let -- монада и стрелка Клейсли на входе
-            (x1, w1) = runWriter m -- достали содержимое из монады
-            (x2, w2) = runWriter (k x1) -- вычисление
-        in Writer (x2, w1 `mappend` w2) -- накопление лога
+            (x1, w1) = runWriter m -- левое вычисление, достали содержимое из монады
+            (x2, w2) = runWriter (k x1) -- правое вычисление
+        in writer (x2, (w1 `mappend` w2)) -- накопление лога
 
 -- examples
+
 ghci> import Control.Monad.Writer
 
 -- лог: моноид строки
@@ -2641,26 +2643,34 @@ Product {getProduct = 1}
 ```
 repl
 
-В стдлиб обычно используется соглашение: `runFoo` для запуска вычислений в монаде (и значение и эффекты),
-`execFoo` для получения эффектов от вычислений (значение игнорируется).
+В стдлиб обычно используется соглашение:
+- `runFoo` для запуска вычислений в монаде (и значение и эффекты),
+- `execFoo` для получения эффектов от вычислений (значение игнорируется),
+- `evalFoo` для получения значения и игнорирования эффектов
 
 ```hs
-https://stepik.org/lesson/8442/step/3?unit=1577
-TODO
 {--
 Функция `execWriter` запускает вычисление, содержащееся в монаде `Writer`
 и возвращает получившийся лог, игнорируя сам результат вычисления
-Реализуйте функцию `evalWriter`, которая, наоборот, игнорирует накопленный лог и возвращает только результат вычисления
+Реализуйте функцию `evalWriter`, которая, наоборот,
+игнорирует накопленный лог и возвращает только результат вычисления
 --}
 evalWriter :: Writer w a -> a
 evalWriter = ?
 
+-- solution
+
+evalWriter :: Writer w a -> a
+evalWriter = fst . runWriter
+
+-- reference
+
+execWriter :: Writer w a -> w
+execWriter m = snd (runWriter m)
 ```
 test
 
 ```hs
-https://stepik.org/lesson/8442/step/4?unit=1577
-TODO
 {--
 Выберите все верные утверждения про монаду `Writer`
 
@@ -2671,12 +2681,23 @@ TODO
 - Тип результата вычисления и тип лога должны совпадать
 - В качестве типа результата вычисления можно использовать произвольный тип 
 --}
-
+{--
 - полугруппа - это где есть ассоциативная бинарная операция
 - моноид - это полугруппа с единицей
 - группа - это моноид с обратными элементами
 - Не любой моноид - группа, но любая группа - уже моноид.
+--}
 
+-- solution
+
+- (да) В качестве типа лога можно использовать произвольную группу
+- Тип результата вычисления и тип лога не могут совпадать
+- (да) Тип результата вычисления и тип лога могут как совпадать, так и не совпадать
+- В качестве типа лога можно использовать произвольный тип
+- Тип результата вычисления и тип лога должны совпадать
+- (да) В качестве типа результата вычисления можно использовать произвольный тип 
+
+Лог это моноид, значение любое.
 ```
 test
 
@@ -2692,10 +2713,11 @@ tell w = writer ((), w)
 
 -- ффект монады Writer - запись в лог
 -- При сцеплении двух монадических вычислений в этой монаде с помощью (>>=) или (>>) логи соединяются с помощью mappend
-ghci> runWriter $ tell "A" >> tell "B" >> tell "C"
+ghci> runWriter $ tell "A" >> tell "B" >> tell "C" -- конкатенация трех списков
 ((),"ABC")
 
 -- example
+
 calc :: (Int -> Int -> Int) -> Int -> Int -> Writer String Int
 calc op x y = do
     let res = x `op` y
@@ -2722,8 +2744,6 @@ ghci> runWriter $ calc (+) 99 44
 repl
 
 ```hs
-https://stepik.org/lesson/8442/step/6?unit=1577
-TODO
 {--
 Давайте разработаем программное обеспечение для кассовых аппаратов одного исландского магазина
 Заказчик собирается описывать товары, купленные покупателем, с помощью типа `Shopping` следующим образом
@@ -2753,12 +2773,25 @@ purchase item cost = ?
 total :: Shopping -> Integer
 total = ?
 
+-- solution
+
+import Data.Monoid
+import Control.Monad
+import Control.Monad.Writer ( Writer, writer, runWriter, tell )
+type Shopping = Writer (Sum Integer) () -- двух-параметрический конструктор: моноид-суммы, юнит
+-- по факту, весь шоппинг это накапливание суммы в виде эффекта, значение нас не интересует
+
+purchase :: String -> Integer -> Shopping
+purchase item cost = do
+    tell $ Sum cost
+
+total :: Shopping -> Integer
+total = getSum . snd . runWriter -- можно было использовать exec
+
 ```
 test
 
 ```hs
-https://stepik.org/lesson/8442/step/7?unit=1577
-TODO
 {--
 Измените определение типа `Shopping` и доработайте функцию `purchase`
 из предыдущего задания таким образом, чтобы можно было реализовать функцию `items`
@@ -2789,6 +2822,32 @@ total = ?
 items :: Shopping -> [String]
 items = ?
 
+-- solution
+
+type Shopping = Writer (Sum Integer, [String]) ()
+
+purchase :: String -> Integer -> Shopping
+purchase item cost = do
+    tell (Sum cost, [item])
+
+total :: Shopping -> Integer
+total = getSum . fst . execWriter
+
+items :: Shopping -> [String]
+items = snd . execWriter
+
+-- alternative
+
+type Shopping = Writer [(String, Integer)] ()
+
+purchase :: String -> Integer -> Shopping
+purchase v i = tell $ return (v, i)
+
+total :: Shopping -> Integer
+total = sum . map snd . execWriter
+
+items :: Shopping -> [String]
+items = map fst . execWriter
 ```
 test
 
