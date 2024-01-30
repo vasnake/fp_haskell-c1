@@ -2,6 +2,8 @@
 
 [Функциональное программирование на языке Haskell / Денис Москвин / stepik](https://stepik.org/course/75/syllabus?next=)
 
+[code sandbos](./chapter-5/test-monads.hs)
+
 Мотивация: абстракция и композиция вычислений с эффектами.
 Мы хотим тотальные чистые функции и мы хотим модульность и композиционность (собирать сложные решения из простых компонент).
 Для обработки эффектов придумали Стрелку Клейсли `a -> m a` и монады (композиция вычислений с контекстом).
@@ -2862,7 +2864,8 @@ https://stepik.org/lesson/8444/step/1?unit=1579
 ### 5.8.2 Monad State
 
 Изменяемое состояние, сопровождающее цепочку монадических вычислений.
-Комбинация Reader, Writer.
+Комбинация Reader, Writer монад.
+На каждом шаге пайплайна может быть создан новый объект стейта, который затем передается downstream.
 ```hs
 -- имеем внутри стрелочный тип, как в Reader
 -- имеем внутри пару, как в Writer
@@ -2877,14 +2880,15 @@ class Monad m where
     (>>) :: m a -> m b -> m b -- then, sequence
 
 instance Monad (State s) where
-    return a = State (\ st -> (a, st)) -- заворачиваем стрелку
-    return a = State $ \st -> (a, st) -- альтернативная запись
-    -- на входе (в bind) монада и стрелка Клейсли
-    m >>= k = State $ \ st1 -> -- заворачиваем стрелку
-        let
-            (a, st2) = runState m st1 -- первое вычисление
-            m2 = k a -- второе вычисление, очередность правильная
-        in runState m2 st2 -- st1 -> (m2, st2)
+    return a = State (\ st -> (a, st)) -- заворачиваем стрелку -- pure, как лямбда завернутая в newtype
+    return a = State $ \st -> (a, st) -- альтернативная запись -- pure
+    -- на входе (в bind) монада и стрелка Клейсли, на выходе монада
+    m >>= k = 
+        State $ \st1 -> -- заворачиваем стрелку
+            let
+                (a, st2) = runState m st1 -- первое вычисление, левая часть bind
+                m2 = k a -- создадим второе вычисление, очередность правильная, правая часть bind
+            in runState m2 st2 -- и запускаем второе вычисление на (возможно модифицированном) стейте
 
 -- два хелпера
 
@@ -2897,8 +2901,6 @@ evalState m s = fst (runState m s)
 repl
 
 ```hs
-https://stepik.org/lesson/8444/step/3?unit=1579
-TODO
 {--
 Выберите все верные утверждения про монаду `State`
 
@@ -2906,12 +2908,23 @@ TODO
 - Монада State является частным случаем монады Reader
 - Монада Writer является частным случаем монады State 
 --}
+
+-- solution
+
+- Монада State является частным случаем монады Writer
+- Монада State является частным случаем монады Reader
+- (да) Монада Writer является частным случаем монады State 
+
+Если спросить "можно ли реализовать reader/writer через state" и наоборот, то ...
+да, можно. Наоборот? Нет, нельзя
+
+newtype State s a  = State  { runState :: s -> (a, s) }
+newtype Reader r a = Reader { runReader :: (r -> a) }
+newtype Writer w a = Writer { runWriter :: (a, w) }
 ```
 test
 
 ```hs
-https://stepik.org/lesson/8444/step/4?unit=1579
-TODO
 {--
 Где реализована монада `State`?
 Select one option from the list
@@ -2919,6 +2932,15 @@ Select one option from the list
 - Монада State реализована в одном из пакетов Haskell Platform
 - Монада State встроена в компилятор GHC, поскольку позволяет осуществлять вычисления с изменяемым состоянием, что невозможно в «чистом» Хаскеле 
 --}
+
+-- solution
+
+- (да) Монада State реализована в одном из пакетов Haskell Platform
+- Монада State встроена в компилятор GHC, поскольку позволяет осуществлять вычисления с изменяемым состоянием, что невозможно в «чистом» Хаскеле 
+
+Смысл этого вопроса, вероятно, в том, что речь идет о "мутабельном" стейте а язык чисто функциональный, без мутабельности.
+Ответ очевиден, если подумать (или посмотреть) о цепочке монадических вычислений в этой монаде.
+Там нет мутаций, там есть создание нового стейта (или пробрасывание старого).
 ```
 test
 
@@ -2946,31 +2968,28 @@ ghci> runState (put 7) 42
 
 -- при каждом использовании увеличивает счетчик
 tick :: State Int Int
-tick = do
+tick = do -- тут три bind, чтобы осознать детали, надо вспомнить как реализован bind для Monad State
     n <- get -- получает стейт
     put (n + 1) -- обновляет стейт
-    return n -- возвращает старый стейт как значение
+    return n -- возвращает старый стейт как значение (и новый стейт как эффект)
 
 ghci> runState tick 5
-(5,6)
+(5,6) -- (старый стейт как значение, новый стейт как эффект)
 
--- modify, Kleisli arrow
+-- `modify`, Kleisli arrow
 -- обновляет (put) стейт через переданную функцию трансформации стейта
 modify :: (s -> s) -> State s ()
-modify f = State $ \ s -> ((), f s) -- пакует стрелку из стейта в трансформированный-стейт
+modify f = State $ \ s -> ((), f s) -- пакует стрелку: из оригинального стейта в трансформированный стейт
 modify f = do -- альтернативная реализация
     s <- get
     put (f s)
 
 ghci> runState (modify (^2)) 5
 ((),25)
-ghci>
 ```
 repl
 
 ```hs
-https://stepik.org/lesson/8444/step/6?unit=1579
-TODO
 {--
 Давайте убедимся, что с помощью монады `State` можно эмулировать монаду `Reader`
 Напишите функцию `readerToState`, «поднимающую» вычисление из монады `Reader` в монаду `State`
@@ -2983,12 +3002,26 @@ GHCi> runState (readerToState $ asks (+2)) 4
 readerToState :: Reader r a -> State r a
 readerToState m = ?
 
+-- solution
+
+-- смотрим на сигнатуры
+-- newtype State s a  = State  { runState :: s -> (a, s) }
+-- newtype Reader r a = Reader { runReader :: (r -> a) }
+-- видим, что нам нужно стрелку ридера превратить в похожую стрелку, но на выходе пара (a, r)
+
+-- import Control.Monad.State ( ap, liftM, State, runState, evalState, execState, get, put, modify, state )
+readerToState :: Reader r a -> State r a
+readerToState rm = state valStatePair where
+    valStatePair givenState = (runReader rm givenState, givenState)
+
+-- alternative
+
+readerToState :: Reader r a -> State r a
+readerToState m = State $ \st -> (runReader m st, st)
 ```
 test
 
 ```hs
-https://stepik.org/lesson/8444/step/7?unit=1579
-TODO
 {--
 Теперь убедимся, что с помощью монады `State` можно эмулировать монаду `Writer`
 Напишите функцию `writerToState`, «поднимающую» вычисление из монады `Writer` в монаду `State`:
@@ -3006,28 +3039,45 @@ GHCi> runState (writerToState $ tell "world") mempty
 writerToState :: Monoid w => Writer w a -> State w a
 writerToState m = ?
 
+-- solution
+
+-- моноид w напоминает, что лог надо накапливать, поэтому mappend
+-- newtype State s a  = State  { runState :: s -> (a, s) }
+-- newtype Writer w a = Writer { runWriter :: (a, w) }
+-- import Control.Monad.Writer ( Writer, writer, runWriter, execWriter, tell )
+
+writerToState :: Monoid w => Writer w a -> State w a
+writerToState wa = state valStatePair where
+    valStatePair givenState = (a, givenState `mappend` w)
+    (a, w) = runWriter wa -- значение и лог из данного врайтера
+
+-- alternative
+
+writerToState :: Monoid w => Writer w a -> State w a
+writerToState m = State $ \s -> let (v, l) = runWriter m in (v, s `mappend` l)
 ```
 test
 
-### 5.8.8 examples, replicateM
+### 5.8.8 examples (tick), `replicateM = sequence . replicate`
 
-Примеры на базе `tick`
+Примеры на базе функции `tick`
 ```hs
-tick :: State Int Int
+tick :: State Int Int -- тут стрелки не видно, но она есть, стейт это монада над стрелочным типом
 tick = do
     n <- get
-    put (n + 1)
-    return n
+    put (n + 1) -- new state
+    return n -- new value
 
 ghci> runState tick 5
-(5,6) -- предыдущее значение в качестве "значения"
+(5,6) -- (value, state) предыдущее значение в качестве "значения"
 
 ghci> execState tick 5
 6
 
 succ :: Int -> Int
-succ n = execState tick n
+succ n = execState tick n -- only state
 
+-- сумма через список тиков
 plus :: Int -> Int -> Int
 plus n x = execState (sequence (replicate n tick)) x
 -- replicate n tick -- list
@@ -3038,9 +3088,10 @@ plus n x = execState (sequence (replicate n tick)) x
 ghci> runState (sequence (replicate 4 tick)) 5
 ([5,6,7,8],9) -- список значений цепочки монад.вычислений, эффект (стейт) = 9
 
-ghci> runState (sequence_ (replicate 4 tick)) 5
+ghci> runState (sequence_ (replicate 4 tick)) 5 -- `sequence_` игнорирует значения
 ((),9)
 
+-- композиция sequence . replicate
 -- настолько часто используется для порождения цепочки монад.вычислений
 sequence $ replicate n
 -- что сделали отдельную функцию
@@ -3061,8 +3112,6 @@ repl
 Абстракция вычислений с эффектами, стандартные интерфейсы -- инструменты ФП модуляризации программ.
 
 ```hs
-https://stepik.org/lesson/8444/step/9?unit=1579
-TODO
 {--
 Если бы мы хотели вычислить n-е число Фибоначчи на императивном языке программирования
 мы бы делали это с помощью двух переменных и цикла, обновляющего эти переменные
@@ -3103,12 +3152,37 @@ fibStep = ?
 execStateN :: Int -> State s a -> s -> s
 execStateN n m = ?
 
+-- solution
+
+-- newtype State s a  = State  { runState :: s -> (a, s) }
+fibStep :: State (Integer, Integer) () -- type state value -- runState (value, state)
+fibStep = do
+    (n1, n2) <- get
+    put (n2, n1 + n2)
+    return ()
+
+execStateN :: Int -> State s a -> s -> s
+execStateN n ms = execState (replicateM n ms)
+
+-- alternative
+
+fibStep :: State (Integer, Integer) ()
+fibStep = modify $ \(a,b) -> (b, a + b)
+
+execStateN :: Int -> State s a -> s -> s
+execStateN n m = execState $ replicateM_ n m
+
+fibStep :: State (Integer, Integer) ()
+fibStep = do
+    start <- get
+    put (snd start, uncurry (+) start)
+
+execStateN :: Int -> State s a -> s -> s
+execStateN n m = execState $ replicateM_ n m
 ```
 test
 
 ```hs
-https://stepik.org/lesson/8444/step/10?unit=1579
-TODO
 {--
 Некоторое время назад мы определили тип двоичных деревьев, содержащих значения в узлах
 
@@ -3127,9 +3201,51 @@ Fork (Leaf 1) 2 (Leaf 3)
 numberTree :: Tree () -> Tree Integer
 numberTree tree = ?
 
+-- solution
+
+numberTree :: Tree () -> Tree Integer -- replace values `()` with ordering numbers
+numberTree t = evalState (numberTreeS t) 1
+-- обойдем дерево с протаскиванием стейта
+numberTreeS :: Tree () -> State Integer (Tree Integer) -- state value
+-- Tree is a sum type, pat.mat. for 2 cases
+numberTreeS (Leaf _) = do
+    n <- get
+    put (n + 1)
+    return (Leaf n) -- set current number
+numberTreeS (Fork left _ right) = do
+    lt <- numberTreeS left -- in-order: left, node, right
+    n <- get
+    put (n + 1)
+    rt <- numberTreeS right
+    return $ Fork lt n rt -- construct current node
+
+-- alternative
+
+numberTree :: Tree () -> Tree Integer
+numberTree tree = evalState (number tree) 1
+  where
+    number :: Tree () -> State Integer (Tree Integer)
+    number (Leaf ()) = get >>= \i -> modify (+1) >> return (Leaf i)
+    number (Fork l () r) = do
+      la <- number l
+      i <- get
+      modify (+1)
+      ra <- number r
+      return $ Fork la i ra
+
+-- решение через Traversable
+
+import Control.Applicative
+import Data.Traversable
+import Data.Foldable
+instance Functor Tree where
+  fmap = fmapDefault
+instance Foldable Tree where
+  foldMap = foldMapDefault
+instance Traversable Tree where
+  traverse g (Leaf x) = Leaf <$> g x
+  traverse g (Fork l x r) = Fork <$> traverse g l <*> g x <*> traverse g r
+numberTree :: Tree () -> Tree Integer
+numberTree tree = evalState (traverse (const $ modify succ >> get) tree) 0
 ```
 test
-
-
-
-Grep `TODO` markers, fix it. After that you're done.

@@ -1,19 +1,22 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use tuple-section" #-}
 module TestMonads where
 -- import Text.PrettyPrint.Annotated.HughesPJ (AnnotDetails(NoAnnot))
 -- import Data.Char (toUpper)
-import Data.Char
-import Data.Monoid
-import Control.Monad
+import Data.Char ( toUpper )
+import Data.Monoid ( Sum(..) )
+import Control.Monad.State ( ap, liftM, State, runState, evalState, execState, get, put, modify, state, replicateM )
 import Control.Monad.Writer ( Writer, writer, runWriter, execWriter, tell )
+-- import Control.Monad.Reader (Reader, reader, runReader, asks, ask, local)
 -- import Control.Monad (liftM, ap)
 import Text.Read (readMaybe)
 -- import Text.Parsec.Prim (putState)
 -- import Data.List (isInfixOf)
-import Data.List as L
-import Control.Applicative
+import Data.List as L ( isInfixOf )
+import Control.Applicative ()
 
 {--
-Ideas testing sandbox, various snippets, tests
+Ideas testing sandbox, various snippets, tests, problems
 -}
 
 {--
@@ -75,7 +78,7 @@ Leaf Nothing
 GHCi> words <$> Leaf (Just "a b")
 Leaf (Just ["a","b"])
 --}
-
+{--
 data Tree a = Leaf (Maybe a) | Branch (Tree a) (Maybe a) (Tree a) deriving Show
 -- import Data.Functor
 instance Functor Tree where
@@ -85,6 +88,7 @@ instance Functor Tree where
 
 test4 = words <$> Leaf Nothing -- Leaf Nothing
 test5 = words <$> Leaf (Just "a b") -- Leaf (Just ["a","b"])
+--}
 
 {--
 Определите представителя класса `Functor`
@@ -690,8 +694,218 @@ test23 = total shopping1 -- 19708
 test24 = items shopping1 -- ["Jeans","Water","Lettuce"]
 
 
+{--
+Давайте убедимся, что с помощью монады `State` можно эмулировать монаду `Reader`
+Напишите функцию `readerToState`, «поднимающую» вычисление из монады `Reader` в монаду `State`
+
+GHCi> evalState (readerToState $ asks (+2)) 4
+6
+GHCi> runState (readerToState $ asks (+2)) 4
+(6,4) 
+--}
+
+readerToState :: Reader r a -> State r a
+readerToState rm = state valStatePair where
+    valStatePair givenState = (runReader rm givenState, givenState)
+-- newtype State s a  = State  { runState :: s -> (a, s) }
+-- newtype Reader r a = Reader { runReader :: (r -> a) }
+-- return a = State (\st -> (a, st)) -- Monad State pure
+
+test25 = evalState (readerToState $ asks (+2)) 4 -- 6
+test26 = runState (readerToState $ asks (+2)) 4 -- (6,4) 
+
+
+{--
+Теперь убедимся, что с помощью монады `State` можно эмулировать монаду `Writer`
+Напишите функцию `writerToState`, «поднимающую» вычисление из монады `Writer` в монаду `State`:
+
+GHCi> runState (writerToState $ tell "world") "hello,"
+((),"hello,world")
+GHCi> runState (writerToState $ tell "world") mempty
+((),"world")
+
+Обратите внимание на то, что при работе с монадой `Writer` предполагается, что изначально лог пуст
+(точнее, что в нём лежит нейтральный элемент моноида), 
+поскольку интерфейс монады просто не позволяет задать стартовое значение.
+Монада `State` же начальное состояние (оно же стартовое значение в логе) задать позволяет
+--}
+
+writerToState :: Monoid w => Writer w a -> State w a
+writerToState wa = state valStatePair where
+    valStatePair givenState = (a, givenState `mappend` w)
+    (a, w) = runWriter wa
+-- newtype State s a  = State  { runState :: s -> (a, s) }
+-- newtype Writer w a = Writer { runWriter :: (a, w) }
+-- import Control.Monad.Writer ( Writer, writer, runWriter, execWriter, tell )
+
+test27 = runState (writerToState $ tell "world") "hello," -- ((),"hello,world")
+test28 = runState (writerToState $ tell "world") mempty -- ((),"world")
+
+
+
+{--
+Если бы мы хотели вычислить n-е число Фибоначчи на императивном языке программирования
+мы бы делали это с помощью двух переменных и цикла, обновляющего эти переменные
+
+def fib(n):
+  a, b = 0, 1
+  for i in [1 .. n]:
+    a, b = b, a + b
+  return a
+
+С точки зрения Хаскеля, такую конструкцию удобно представлять себе как вычисление с состоянием. 
+Состояние в данном случае — это два целочисленных значения
+
+Императивный алгоритм действует очень просто: он совершает n шагов, каждый из которых некоторым образом изменяет текущее состояние. 
+Первым делом, реализуйте функцию `fibStep`
+изменяющую состояние таким же образом, как и один шаг цикла в императивном алгоритме
+
+GHCi> execState fibStep (0,1)
+(1,1)
+GHCi> execState fibStep (1,1)
+(1,2)
+GHCi> execState fibStep (1,2)
+(2,3)
+
+После этого останется лишь применить этот шаг n раз к правильному стартовому состоянию и выдать ответ
+Реализуйте вспомогательную функцию `execStateN`, которая принимает число шагов n,
+вычисление с состоянием и начальное состояние, 
+запускает вычисление n раз и выдает получившееся состояние (игнорируя сами результаты вычислений)
+
+Применяя эту функцию к `fibStep`, мы сможем вычислять числа Фибоначчи:
+
+fib :: Int -> Integer
+fib n = fst $ execStateN n fibStep (0, 1)
+--}
+
+-- newtype State s a  = State  { runState :: s -> (a, s) }
+fibStep :: State (Integer, Integer) () -- type state value -- runState (value, state)
+fibStep = do
+    (n1, n2) <- get
+    put (n2, n1 + n2)
+    return ()
+
+execStateN :: Int -> State s a -> s -> s
+execStateN n ms = execState (replicateM n ms)
+
+-- tests
+
+fib :: Int -> Integer
+fib n = fst $ execStateN n fibStep (0, 1)
+
+test29 = execState fibStep (0,1) -- (1,1)
+test30 = execState fibStep (1,1) -- (1,2)
+test31 = execState fibStep (1,2) --(2,3)
+test32 = fib 7 -- 13
+test33 = fib 12 -- 144
+
+
+{--
+Некоторое время назад мы определили тип двоичных деревьев, содержащих значения в узлах
+
+data Tree a = Leaf a | Fork (Tree a) a (Tree a)
+
+В этой задаче вам дано значение типа `Tree ()`, иными словами, вам задана форма дерева.
+
+Требуется пронумеровать вершины дерева данной формы, обойдя их `in-order` 
+то есть, сначала обходим левое поддерево, затем текущую вершину, затем правое поддерево
+
+GHCi> numberTree (Leaf ())
+Leaf 1
+GHCi> numberTree (Fork (Leaf ()) () (Leaf ()))
+Fork (Leaf 1) 2 (Leaf 3)
+--}
+data Tree a = Leaf a | Fork (Tree a) a (Tree a) deriving Show
+
+numberTree :: Tree () -> Tree Integer -- replace values `()` with ordering numbers
+numberTree t = evalState (numberTreeS t) 1
+-- обойдем дерево с протаскиванием стейта
+numberTreeS :: Tree () -> State Integer (Tree Integer) -- state value
+-- Tree is a sum type, pat.mat. for 2 cases
+numberTreeS (Leaf _) = do
+    n <- get
+    put (n + 1)
+    return (Leaf n) -- set current number
+numberTreeS (Fork left _ right) = do
+    lt <- numberTreeS left -- in-order: left, node, right
+    n <- get
+    put (n + 1)
+    rt <- numberTreeS right
+    return $ Fork lt n rt -- construct current node
+
+test34 = numberTree (Leaf ()) -- Leaf 1
+test35 = numberTree (Fork (Leaf ()) () (Leaf ())) -- Fork (Leaf 1) 2 (Leaf 3)
+
 -- reference
 {--
+tick :: State Int Int -- тут стрелки не видно, но она есть, стейт это монада над стрелочным типом
+tick = do
+    n <- get
+    put (n + 1) -- new state
+    return n -- new value
+
+ghci> runState tick 5
+(5,6) -- (value, state) предыдущее значение в качестве "значения"
+
+ghci> execState tick 5
+6
+
+succ :: Int -> Int
+succ n = execState tick n -- only state
+
+plus :: Int -> Int -> Int
+plus n x = execState (sequence (replicate n tick)) x
+
+ghci> runState (sequence (replicate 4 tick)) 5
+([5,6,7,8],9) -- список значений цепочки монад.вычислений, эффект (стейт) = 9
+
+replicateM n = sequence . replicate n
+
+ghci> :i replicateM
+replicateM :: Applicative m => Int -> m a -> m [a] -- Defined in ‘Control.Monad’
+
+plus n x = execState (replicateM n tick) x
+
+ghci> runState (replicateM 4 tick) 5
+([5,6,7,8],9)
+
+instance Monad (State s) where
+    return a = State (\ st -> (a, st)) -- заворачиваем стрелку -- pure, как лямбда завернутая в newtype
+    m >>= k = 
+        State $ \st1 -> -- заворачиваем стрелку
+            let
+                (a, st2) = runState m st1 -- первое вычисление, левая часть bind
+                m2 = k a -- создадим второе вычисление, очередность правильная, правая часть bind
+            in runState m2 st2 -- и запускаем второе вычисление на (возможно модифицированном) стейте
+
+newtype Reader r a = Reader { runReader :: (r -> a) } -- завернули стрелку в тип `Reader r a`, двухпараметрический
+instance Functor (Reader r) where
+    fmap = liftM
+instance Applicative (Reader r) where
+    pure  = return
+    (<*>) = ap
+instance Monad (Reader r) where
+    return x = Reader (\ e -> x)
+    m >>= k  = Reader (\ e ->
+        let x = runReader m e
+        in runReader (k x) e)
+ask :: Reader r r -- `r -> r`, фактически и есть `id`
+ask = Reader id
+asks :: (r -> a) -> Reader r a
+asks = Reader -- конструктор ридера из аргумента-функции
+local :: (r -> r) -> Reader r a -> Reader r a
+local f mr = Reader (runReader mr . f)
+reader :: (r -> a) -> Reader r a
+reader f = do
+    r <- ask
+    return (f r)
+
+put :: s -> State s ()
+put st = State $ \ _ -> ((), st) -- игнорирует внешний стейт, кладет в монаду новый
+
+newtype State s a  = State  { runState :: s -> (a, s) }
+newtype Reader r a = Reader { runReader :: (r -> a) }
+newtype Writer w a = Writer { runWriter :: (a, w) }
 
 newtype Writer w a = Writer { runWriter :: (a, w) } -- n.b. флипнуты типы
 runWriter :: Writer w a -> (a, w)
