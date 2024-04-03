@@ -115,18 +115,7 @@ ghci> :t show
 show :: Show a => a -> String
 
 -- решение: надо определить, какой из трех конструкторов пришел, выдать соотв. строку
-:{
-instance Show Color where
-    show Red    = "Red"
-    show Green  = "Green"
-    show Blue   = "Blue"
-    show _      = error "unknown color"
-:}
--- Добавил избыточный паттерн-дырку, на случай если кто-то добавит цвет и забудет поправить инстанс. 
--- Хотя правильнее было бы использовать флаг warn-incomplete-patterns
 
--- альтернатива
-data Color = Red | Green | Blue deriving Show
 ```
 test
 
@@ -177,21 +166,6 @@ ghci> fromEnum '9'
 57
 
 -- решение: предполагаю, задачка на написание пачки пат.матов.
-charToInt :: Char -> Int
-charToInt '0' = 0
-charToInt '1' = 1
-charToInt '2' = 2
-charToInt '3' = 3
-charToInt '4' = 4
-charToInt '5' = 5
-charToInt '6' = 6
-charToInt '7' = 7
-charToInt '8' = 8
-charToInt '9' = 9
-
--- альтернатива
-charToInt :: Char -> Int
-charToInt c = if x >= 0 && x <= 9 then x else undefined where x = fromEnum c - 48
 
 ```
 test
@@ -209,16 +183,7 @@ stringToColor :: String -> Color
 stringToColor = undefined
 
 -- решение: упражнение на написание пат.мат.-ов
-data Color = Red | Green | Blue
-stringToColor :: String -> Color
-stringToColor "Red" = Red
-stringToColor "Green" = Green
-stringToColor "Blue" = Blue
 
--- альтернатива
-data Color = Red | Green | Blue deriving (Read)
-stringToColor :: String -> Color
-stringToColor = read
 ```
 test
 
@@ -307,28 +272,7 @@ cmp :: LogLevel -> LogLevel -> Ordering
 cmp = undefined
 
 -- решение, предполагаю требуется использование пат.мат.
-:{
-cmp :: LogLevel -> LogLevel -> Ordering
-cmp Error Error = EQ
-cmp Info Info = EQ
-cmp Warning Warning = EQ
-cmp Error _ = GT
-cmp Info _ = LT
-cmp _ Error = LT
-cmp _ Info = GT
-:}
 
--- alternative
-import Data.Function
-instance Enum LogLevel where
-    fromEnum Error   = 2
-    fromEnum Warning = 1
-    fromEnum Info    = 0
-cmp :: LogLevel -> LogLevel -> Ordering
-cmp = on compare fromEnum
-
-ghci> :i on
-on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
 ```
 test
 
@@ -379,20 +323,6 @@ processData :: SomeData -> String
 processData = undefined
 
 -- решение: задачка на пат.мат. и/или `case of`
-processData :: SomeData -> String
-processData x = case doSomeWork x of
-    (Success, _) -> "Success"
-    (_, errCode) -> "Fail: " ++ show errCode
-
--- alternative
-processData :: SomeData -> String
-processData = (\p -> case p of { (Success, 0) -> "Success"; (Fail, n) -> "Fail: " ++ show n }) . doSomeWork
-
-processData :: SomeData -> String
-processData = m . doSomeWork
-    where m (r, err) = case r of
-                        Fail -> "Fail: " ++ show err
-                        Success -> "Success"
 
 ```
 test
@@ -458,24 +388,7 @@ distance :: Point -> Point -> Double
 distance = undefined
 
 -- решение: квадрат гипотенузы равен сумме квадратов катетов
-data Point = Point Double Double
-origin :: Point
-origin = Point 0.0 0.0
-distanceToOrigin :: Point -> Double
-distanceToOrigin (Point x y) = sqrt (x ^ 2 + y ^ 2)
-distance :: Point -> Point -> Double
-distance (Point x1 y1) (Point x2 y2) = sqrt (lenX ^ 2 + lenY ^ 2) where
-    lenX = x2 - x1
-    lenY = y2 - y1
 
-ghci> distance (Point 1 2) (Point 3 4)
-2.8284271247461903
-
--- notes
-> distanceToOrigin - норма https://ru.wikipedia.org/wiki/Нормированное_пространство#Метрика_нормированного_пространства_и_связь_с_нормой
-
-distance :: Point -> Point -> Double
-distance (Point x1 y1) (Point x2 y2) = distanceToOrigin $ Point (x2 - x1) (y2 - y1)
 ```
 test
 
@@ -534,29 +447,7 @@ area = undefined
 
 -- решение: площадь круга пи-эр-квадрат, площадь прямоугольника а-умножить-б
 -- тип данных: сумма, поэтому для каждого конструктора делаем отдельный паттерн
-data Shape = Circle Double | Rectangle Double Double
-area :: Shape -> Double
-area (Circle r) = pi * r^2
-area (Rectangle a b) = a * b
 
-ghci> area (Circle 1)
-3.141592653589793
-ghci> area (Rectangle 2 3)
-6.0
-
--- notes
--- приоритет возведения в степень выше умножения
-ghci> :i ^
-(^) :: (Num a, Integral b) => a -> b -> a       -- Defined in ‘GHC.Real’
-infixr 8 ^
-ghci> :i *
-type Num :: * -> Constraint
-class Num a where
-  ...
-  (*) :: a -> a -> a
-  ...
-        -- Defined in ‘GHC.Num’
-infixl 7 *
 ```
 test
 
@@ -596,19 +487,6 @@ processData = m . doSomeWork
 
 -- решение
 
--- при успехе кода нет, при ошибке есть код (сумма). Имена со штрихом во избежание коллизий
-data Result' = Success' | Fail' Int
-
--- "Success" в случае успеха | "Fail: N" в случае неудачи, где `N` — код ошибки
-instance Show Result' where
-    show Success' = "Success"
-    show (Fail' x) = "Fail: " ++ show x
-
-doSomeWork' :: SomeData -> Result' -- при успехе кода нет, при ошибке есть код (сумма)
-doSomeWork' = decode . doSomeWork where
-    decode (tag, code) = case tag of
-        Success -> Success'
-        Fail -> Fail' code
 ```
 test
 
@@ -654,17 +532,7 @@ isSquare :: Shape -> Bool
 isSquare = undefined
 
 -- решение
--- шейп надо проверить на "квадратность"
--- шейп это сумма круга и прямоугольника, квадрат это прямоугольник с одинаковыми сторонами
-data Shape = Circle Double | Rectangle Double Double
-square :: Double -> Shape
-square a = Rectangle a a
-isSquare :: Shape -> Bool
-isSquare (Rectangle a b) = abs (a - b) <= delta where delta = 0.000001
-isSquare _ = False
 
-ghci> isSquare $ square 3.2
-True
 ```
 test
 
@@ -691,56 +559,6 @@ add = undefined
 -- на входе тип-произведение из типов Sign (сумма из двух вариантов) и списка Bit (сумма из двух вариантов)
 -- попытаемся реализовать требуемое через кодек в целые числа и банальные операции с целыми числами
 
--- особенности
-{--
-Пустой список бит = 0
-"ведущих нулей не будет" = [0] не валидно.
---}
-
--- решение (альтернативное)
-import Data.List
-data Bit = Zero | One
-data Sign = Minus | Plus
-data Z = Z Sign [Bit]
-
-add :: Z -> Z -> Z
-add a b = toBinarySystem $ toDecimalSystem a + toDecimalSystem b
-
-mul :: Z -> Z -> Z
-mul a b = toBinarySystem $ toDecimalSystem a * toDecimalSystem b
-
-bitToInt :: Bit -> Int
-bitToInt One = 1
-bitToInt Zero = 0
-
-boolToBit :: Bool -> Bit
-boolToBit True = One
-boolToBit False = Zero
-
-toDecimalSystem :: Z -> Int
-toDecimalSystem (Z s bits) =
-    case s of
-        Plus -> x
-        Minus -> -x
-    where
-        x :: Int
-        x = foldr convert 0 (zip [0..] bits)
-
-        convert :: (Int, Bit) -> Int -> Int
-        convert (n, b) acc =
-            acc + bitToInt b * 2^n
-
-toBinarySystem :: Int -> Z
-toBinarySystem v = Z sign bits
-    where
-        sign :: Sign
-        sign = if v >= 0 then Plus else Minus
-        
-        bits :: [Bit]
-        bits = [ boolToBit v | v <- bitsRes ]
-
-        bitsRes :: [Bool]
-        bitsRes = unfoldr (\x -> if x == 0 then Nothing else Just (odd x, x `div` 2)) (abs v)
 ```
 test [test-bitz](./chapter-4.2/test-bitz.hs)
 
@@ -817,9 +635,7 @@ foo False = 0
 -- Что произойдет при вызове foo False?
 
 -- ответ:
-1
--- почему? irrefutable pattern, созданный при помощи тильды `~`.
--- вычисление пойдет по ветке на этом паттерне и редуцируется до `1`
+
 ```
 test
 
@@ -943,76 +759,6 @@ logEntryToString :: LogEntry -> String
 logEntryToString = undefined
 
 -- решение
-import Data.Time.Clock
-import Data.Time.Format
-import System.Locale
-import Data.List (intercalate)
-
-timeToString :: UTCTime -> String
-timeToString = formatTime defaultTimeLocale "%a %d %T"
-
-data LogLevel = Error | Warning | Info deriving Show
-
-data LogEntry = LogEntry { timestamp :: UTCTime, logLevel :: LogLevel, message :: String }
-
-logLevelToString :: LogLevel -> String
-logLevelToString = show
-
-logEntryToString :: LogEntry -> String
-logEntryToString le = intercalate ": " [t,l,m]
-                        where
-                            t = timeToString $ timestamp le
-                            l = logLevelToString $ logLevel le
-                            m = message le
-
--- ------------------------------------------
-
-import Data.Time.Clock
-import Data.Time.Format
-import System.Locale
-
-timeToString :: UTCTime -> String
-timeToString = formatTime defaultTimeLocale "%a %d %T"
-
-data LogLevel = Error | Warning | Info deriving Show
-
-data LogEntry = LogEntry {
-    timestamp :: UTCTime,
-    logLevel  :: LogLevel,
-    message   :: String
-}
-
-logLevelToString :: LogLevel -> String
-logLevelToString = show
-
-logEntryToString :: LogEntry -> String
-logEntryToString log = concatMap ($ log) pattern where
-    pattern = [timeToString . timestamp, sep, logLevelToString . logLevel, sep, message]
-    sep = const ": "
-
--- ------------------------------------------------
-
-import Data.Time.Clock
-import Data.Time.Format
-import System.Locale
-import Data.List (intersperse)
-
-timeToString :: UTCTime -> String
-timeToString = formatTime defaultTimeLocale "%a %d %T"
-
-data LogLevel = Error | Warning | Info deriving Show
-
-data LogEntry = LogEntry { timestamp :: UTCTime, logLevel :: LogLevel, message :: String }
-
-logLevelToString :: LogLevel -> String
-logLevelToString = show
-
-logEntryToString :: LogEntry -> String
-logEntryToString log =
-    concat $ intersperse ": " [ f log | f <- [time, level, message]]
-    where
-        time = timeToString . timestamp
-        level = logLevelToString . logLevel
 
 ```
 test [logentry](./chapter-4.3/test-logentry.hs)
@@ -1079,14 +825,7 @@ updateLastName :: Person -> Person -> Person
 updateLastName = undefined
 
 -- решение
-data Person = Person { firstName :: String, lastName :: String, age :: Int }
-updateLastName :: Person -> Person -> Person
-updateLastName p1 p2 = p2 { lastName = lastName p1 }
 
--- alternative
-data Person = Person { firstName :: String, lastName :: String, age :: Int }
-updateLastName :: Person -> Person -> Person
-updateLastName (Person {lastName = ln}) p2 = p2 {lastName = ln}
 ```
 test
 
@@ -1120,23 +859,8 @@ isRectangle :: Shape -> Bool
 isRectangle Rectangle{} = True
 isRectangle _ = False
 
--- решение: нормально скомпиляется и будет работать как ожидается (отличать прямоуг. от круга). Очевидно, параметры конструктора в
--- фигурных скобках опциональны, вплоть до полного отсутствия параметров.
--- Она компилируется и возвращает True, если на вход передается Rectangle, иначе она возвращает False
-:{
-data Shape = Circle Double | Rectangle Double Double
-isRectangle :: Shape -> Bool
-isRectangle Rectangle{} = True
-isRectangle _ = False
-:}
-ghci> isRectangle $ Rectangle 0 0
-True
-ghci> isRectangle $ Circle 0
-False
+-- решение:
 
-ghci> isRectangle $ Rectangle{}
-<interactive>:20:15: warning: [-Wmissing-fields]     • Fields of ‘Rectangle’ not initialised ...
-True
 ```
 test
 
@@ -1152,16 +876,7 @@ abbrFirstName :: Person -> Person
 abbrFirstName p = undefined
 
 -- решение
-data Person = Person { firstName :: String, lastName :: String, age :: Int }
-abbrFirstName :: Person -> Person
-abbrFirstName p = p { firstName = abbr } where
-    abbr = if length fn < 2 then fn else head fn : "."
-    fn = firstName p
 
--- можно оптимальнее, как-то так (не тестировал)
-data Person = Person { firstName :: String, lastName :: String, age :: Int }
-abbrFirstName :: Person -> Person
-abbrFirstName p@Person {firstName = fn} = if length fn < 2 then p else p { firstName = head fn : "." }
 ```
 test
 
@@ -1224,22 +939,6 @@ manhDistance = undefined
 
 -- решение
 
--- расстояние между точками а и б на плоскости: let dist^2 = abx^2 + aby^2 in sqrt dist^2 where abx = a.x - b.x; aby = a.y - b.y
--- манх. расстояние:  is a metric in which the distance between two points is the sum of the absolute differences of their Cartesian coordinates
--- abs abx + abs aby where abx = a.x - b.x; aby = a.y - b.y
-
-data Coord a = Coord a a
-
-distance :: Coord Double -> Coord Double -> Double
-distance (Coord ax ay) (Coord bx by) = sqrt (abx^2 + aby^2) where
-    abx = ax - bx
-    aby = ay - by
-
-manhDistance :: Coord Int -> Coord Int -> Int
-manhDistance (Coord ax ay) (Coord bx by) = abs abx + abs aby where
-    abx = ax - bx
-    aby = ay - by
-
 ```
 test
 
@@ -1268,42 +967,7 @@ getCell :: Double -> Coord Double -> Coord Int
 getCell = undefined
 
 -- решение
--- Раз у нас положительный квадрант, все числа положительные и счет начинается с 0.
--- Центр ячейки это два числа, х и у: (количество-ячеек * размер-ячейки - половина-размера-ячейки).
--- Номер (координаты) ячейки это два числа, х и у: (целая-часть размер-проекции-вектора / размер-ячейки)
 
-data Coord a = Coord a a
-
-getCenter :: Double -> Coord Int -> Coord Double
-getCenter size (Coord x y) = Coord (center x) (center y) where
-    center n = (size * fromIntegral (n + 1)) - (size / 2) -- first cell has number 0
-
-getCell :: Double -> Coord Double -> Coord Int
-getCell size (Coord x y) = Coord (cell x) (cell y) where
-    cell proj = floor (proj / size)
-
--- alternative
-
-import Data.Function
-data Coord a = Coord a a
-
-getCenter :: Double -> Coord Int -> Coord Double
-getCenter w (Coord x y) = (Coord `on` ((*w) . (+0.5) . fromIntegral)) x y
-
-getCell :: Double -> Coord Double -> Coord Int
-getCell w (Coord x y) = (Coord `on` (floor . (/ w))) x y
-
--- пояснения
-ghci> :i on
-on :: (b -> b -> c) -> (a -> b) -> a -> a -> c -- Defined in ‘Data.Function’
-infixl 0 `on`
--- левоассоциативный оператор с низшим приоритетом
--- x on y -- означает: ф. b -> b -> c 'on' ф. a -> b применить к двум a, чтобы получить один c
--- справа трансформер из a -> b, он обрабатывает входные аргументы функции x 'on' y.
--- слева трансформер из двух b в один c, он дает финальный результат.
-(Coord `on` (floor . (/ w))) x y -- означает: к входным х и у применить деление на дабл-ю и округление-вниз
--- (оператор . это композиция ака декоратор).
--- потом НА этом применить конструктор Coord. Получим выходной Coord на координатах разделенных-на-ширину-и-округленных-вниз
 ```
 test
 
@@ -1418,11 +1082,6 @@ findDigit = undefined
 
 -- решение
 
-import Data.Char(isDigit)
-findDigit :: [Char] -> Maybe Char
-findDigit [] = Nothing
-findDigit (x:xs) = if isDigit x then Just x else findDigit xs
--- findDigit = Data.List.find isDigit
 ```
 test
 
@@ -1444,24 +1103,6 @@ findDigitOrX = undefined
 
 -- решение: нужна конвертация Maybe в символ
 
-import Data.Char(isDigit)
-findDigit :: [Char] -> Maybe Char
-
-findDigitOrX :: [Char] -> Char
-findDigitOrX = decode . findDigit where -- без case of
-    decode Nothing = 'X'
-    decode (Just c) = c
-
--- case of
-
-import Data.Char(isDigit)
-findDigit :: [Char] -> Maybe Char
-
-findDigitOrX :: [Char] -> Char
-findDigitOrX s = case findDigit s of
-    Nothing     -> 'X'
-    (Just c)    -> c
-
 ```
 test
 
@@ -1482,22 +1123,6 @@ listToMaybe :: [a] -> Maybe a
 listToMaybe = undefined
 
 -- решение
-
-maybeToList :: Maybe a -> [a]
-maybeToList Nothing = []
-maybeToList (Just x) = [x]
-
-listToMaybe :: [a] -> Maybe a
-listToMaybe [] = Nothing
-listToMaybe (x:_) = Just x
-
--- альтернатива
-
-maybeToList :: Maybe a -> [a]
-maybeToList = maybe [] (:[]) -- default value = [], function f=(:[]), parameter Maybe a: if Nothing -> default, otherwise -> f a
-
-listToMaybe :: [a] -> Maybe a
-listToMaybe = foldr ((Just .) . const) Nothing -- на пустом = Ничего, на списке = Только первый-элемент -- работает на бесконечности
 
 ```
 test
@@ -1525,79 +1150,6 @@ parsePerson :: String -> Either Error Person
 parsePerson = undefined
 
 -- решение
--- лишние поля: не ошибка, недостаточно полей: ошибка
--- неправильный тип возраста: ошибка
--- строка разбивается по `\n` в список строк. Каждая строка в списке разбивается по `=` на пару (имя, значение)
--- если строка не разбивается по ` = ` то это ошибка
--- из трех пар по именам (firstName, lastName, age) собирается запись Person
--- необходимо учесть возможный порядок возникновения ошибок: сначала возможна ParsingError, если прошли, то возможна IncompleteDataError, ...
-
-import Data.List (stripPrefix)
-import Control.Arrow (first)
-import Data.Maybe (isNothing, fromJust)
-import Text.Read ( readMaybe )
-
--- https://hackage.haskell.org/package/extra-1.7.14/docs/src/Data.List.Extra.html#stripInfix
-stripInfix :: Eq a => [a] -> [a] -> Maybe ([a], [a])
-stripInfix needle haystack | Just rest <- stripPrefix needle haystack = Just ([], rest)
-stripInfix needle [] = Nothing
-stripInfix needle (x:xs) = case stripInfix needle xs of
-  Just (prefix, next) -> Just (x:prefix, next)
-  Nothing -> Nothing
-
-getKv :: [(String, String)] -> String -> Maybe String
-getKv [] _ = Nothing
-getKv ((k,v):kvs) key = if k == key then Just v else getKv kvs key
-
-data Error = ParsingError | IncompleteDataError | IncorrectDataError String
-
-data Person = Person { firstName :: String, lastName :: String, age :: Int }
-
-parsePerson :: String -> Either Error Person
-parsePerson s = let
-    mkvs = map (stripInfix " = ") $ lines s
-    kvs = map fromJust mkvs
-    get = getKv kvs
-  in if any isNothing mkvs then Left ParsingError
-     else case (get "firstName", get "lastName", get "age") of
-       (Just fn, Just ln, Just ageStr) ->
-         case readMaybe ageStr of
-           Nothing -> Left $ IncorrectDataError ageStr
-           Just ageVal -> Right Person {firstName=fn, lastName=ln, age=ageVal}
-       _ -> Left IncompleteDataError
-
-----------------------------------------------------------------
-
-import Data.List
-import Data.Maybe
-import Text.Read ( readMaybe )
-
-data Error = ParsingError | IncompleteDataError | IncorrectDataError String
-
-data Person = Person { firstName :: String, lastName :: String, age :: Int }
-
-trim :: String -> String
-trim = f . f
-   where f str = reverse $ Data.List.dropWhile (==' ') str
-
-splitToPairs :: [String] -> [(String, String)]
-splitToPairs [] = []
-splitToPairs (x:xs) = (trim name, trim (if "" == value then [] else tail value) ): splitToPairs xs
-    where (name, value) = break (=='=') x
-
-parsePerson :: String -> Either Error Person
-parsePerson txt 
-    | values == []                = Left IncompleteDataError
-    | any ((=="").snd) values     = Left ParsingError
-    | any (==Nothing) [fn, ln, a] = Left IncompleteDataError
-    | age' == Nothing             = Left (IncorrectDataError $ fromJust a)
-    | otherwise         = Right (Person {firstName = fromJust fn, lastName = fromJust ln, age = fromJust age'})
-    where
-        values = splitToPairs $ lines txt
-        fn     = lookup "firstName" values
-        ln     = lookup "lastName" values
-        a      = lookup "age" values
-        age'   = readMaybe (fromJust a) :: Maybe Int
 
 ```
 test [parse_person.hs](./chapter-4.4/test-parse_person.hs)
@@ -1701,11 +1253,7 @@ repl
 -- Укажите вид конструктора типов `Either (Maybe Int)`
 
 -- решение
--- ийзер: хочет два параметра, т.е. это будет две звезды на входе, одна на выходе
--- одну звезду мы закрыли `Maybe Int`, остается еще один параметр (кайнд звезда-в-звезду)
 
-ghci> :kind Either (Maybe Int)
-Either (Maybe Int) :: * -> *
 ```
 test
 
@@ -1716,11 +1264,8 @@ eitherToMaybe :: Either a -> Maybe a
 eitherToMaybe (Left a) = Just a
 eitherToMaybe (Right _) = Nothing
 
--- решение: Either хочет два параметра, указан один.
--- Логика подсказывает, что мы интересуемся "эффектом", т.е. ошибкой (Left), отбрасывая результат (Right)
-eitherToMaybe :: Either a b -> Maybe a
-eitherToMaybe (Left a) = Just a
-eitherToMaybe (Right _) = Nothing
+-- решение:
+
 ```
 test
 
@@ -1856,15 +1401,8 @@ fromList = undefined
 toList :: [a] -> List a
 toList = undefined
 
--- решение: говорим рекурсия подразумеваем списки (и наоборот)
-data List a = Nil | Cons a (List a)
+-- решение:
 
-fromList :: List a -> [a]
-fromList Nil = []
-fromList (Cons x xs) = x : fromList xs
-
-toList :: [a] -> List a
-toList = foldr Cons Nil -- foldr :: (elem :: a -> acc :: b -> result :: b) -> (ini :: b) -> list[a] -> (result :: b)
 ```
 test
 
@@ -1895,51 +1433,7 @@ fac :: Nat -> Nat
 fac = undefined
 
 -- решение: подозреваю, что ожидается реализация `toNat :: Integer -> Nat` и уже через нее операции с натами.
-data Nat = Zero | Suc Nat
 
-fromNat :: Nat -> Integer
-fromNat Zero = 0
-fromNat (Suc n) = fromNat n + 1
-
-add :: Nat -> Nat -> Nat
-add a b = toNat (fromNat a + fromNat b)
-
-mul :: Nat -> Nat -> Nat
-mul a b = toNat (fromNat a * fromNat b)
-
-fac :: Nat -> Nat
-fac = toNat . factorial . fromNat where
-    factorial 0 = 1
-    factorial n = product [1 .. n]
-
-toNat :: Integer -> Nat
-toNat 0 = Zero
-toNat n = Suc $ toNat (n - 1)
-
--- alternative
-data Nat = Zero | Suc Nat deriving Show
-
-fromNat :: Nat -> Integer
-fromNat Zero    = 0
-fromNat (Suc n) = fromNat n + 1
-
-add :: Nat -> Nat -> Nat
-add a Zero       = a
-add Zero a       = a
-add a (Suc Zero) = add (Suc a) Zero
-add a (Suc b)    = add (Suc a) b
-
-mul :: Nat -> Nat -> Nat
-mul Zero _       = Zero
-mul _ Zero       = Zero
-mul (Suc Zero) a = a
-mul a (Suc Zero) = a
-mul (Suc a) b    = add (mul a b) b
-
-fac :: Nat -> Nat
-fac Zero       = Suc Zero
-fac (Suc Zero) = Suc Zero
-fac (Suc a)    = mul (Suc a) (fac a)
 ```
 test
 
@@ -1963,17 +1457,7 @@ size :: Tree a -> Int
 size = undefined
 
 -- решение
--- имеем тип сумма, два конструктора: пат.мат. на два базовых варианта и рекурсию
--- высота: количество узлов в самой длиной ветке (листья не считаем, только Node)
-data Tree a = Leaf a | Node (Tree a) (Tree a)
 
-height :: Tree a -> Int
-height (Leaf _) = 0
-height (Node left right) = 1 + max (height left) (height right)
-
-size :: Tree a -> Int
-size (Leaf _) = 1
-size (Node left right) = 1 + size left + size right
 ```
 test
 
@@ -1998,30 +1482,6 @@ avg t =
     go = undefined
 
 -- решение
-data Tree a = Leaf a | Node (Tree a) (Tree a)
-
-avg :: Tree Int -> Int
-avg t =
-    let (c, s) = go t -- (count, sum)
-    in s `div` c
-  where
-    go :: Tree Int -> (Int, Int) -- (count, sum) -- количество листьев и сумму значений в них
-    go (Leaf n) = (1, n)
-    go (Node left right) = (cL + cR, sL + sR) where
-        (cL, sL) = go left
-        (cR, sR) = go right
-
--- alternative
-import Data.Function
-data Tree a = Leaf a | Node (Tree a) (Tree a)
--- в данном решении пара заменена списком и обработка значений делается операциями над списками
-avg :: Tree Int -> Int
-avg t = foldr1 div $ go t -- foldr1 func list: 1 / (2 / 3), -- [sum, count] -> sum / count
-  where
-    go :: Tree Int -> [Int] -- на выходе не пара а список из двух значений [sum, count]
-    go (Leaf x)   = [x, 1] -- [value, count]
-    go (Node l r) = on (zipWith (+)) (go) l r -- on sum-elems-of-two-lists transform-tree-tolist leftT rightT
-    -- списки это пары, значения пар суммируются
 
 ```
 test
@@ -2095,141 +1555,6 @@ expand (e1 :*: e2) = expand e1 :*: expand e2
 expand e = e
 
 -- решение
--- надо раскладывать в "суммой произведений числовых значений"
--- т.е. у нас есть три конструктора, из них два: составные выражения
--- надо пересобрать так, чтобы остались только суммы-произведений
-
-infixl 6 :+:
-infixl 7 :*:
-data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
-    deriving (Show, Eq)
-
-expand :: Expr -> Expr
-expand = foldr1 (:+:) . expandList
-  where
-    expandList :: Expr -> [Expr] -- разобрать в список слагаемых
-    expandList (Val i)   = [Val i]
-    expandList (l :+: r) = expandList l ++ expandList r
-    expandList (l :*: r) = [ e1 :*: e2 | e1 <- expandList l, e2 <- expandList r] -- самая тютелька: дистрибутивность умножения
-    -- для каждого слагаемого из левой части умножить его на слагаемое из правой
-
---------------------------------------------------------------------------
-
-infixl 6 :+:
-infixl 7 :*:
-data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
-    deriving (Show, Eq)
-
-expand :: Expr -> Expr
-expand (e1 :+: e2) = expand e1 :+: expand e2
-expand (e1 :*: e2) = f $ expand e1 :*: expand e2 where
-  f ((e1 :+: e2) :*: e) = f (e1 :*: e) :+: f (e2 :*: e)
-  f (e :*: (e1 :+: e2)) = f (e :*: e1) :+: f (e :*: e2)
-  f e = e
-expand e = e
-
-------------------------------------------------------------------------
-
-infixl 6 :+:
-infixl 7 :*:
-data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
-    deriving (Show, Eq)
-
-expand :: Expr -> Expr
-expand ((e1 :+: e2) :*: e) = expand (e1 :*: e) :+: expand (e2 :*: e)
-expand (e :*: (e1 :+: e2)) = expand (e :*: e1) :+: expand (e :*: e2)
-expand (e1 :+: e2) = expand e1 :+: expand e2
-expand (e1 :*: e2) = (if (x == e1 && y == e2) then id else expand) (x :*: y)
-    where x = expand e1
-          y = expand e2
-expand e = e
-
---------------------------------------------------------------------
-
-infixl 6 :+:
-infixl 7 :*:
-data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
-    deriving (Show, Eq)
-
-expand :: Expr -> Expr
-expand (e1 :+: e2) = expand e1 :+: expand e2
-expand (e1 :*: e2) = mul (expand e1)  (expand e2)
-expand e = e
-
-mul e (e1 :+: e2) = mul e e1 :+: mul e e2
-mul (e1 :+: e2) e = mul e1 e :+: mul e2 e
-mul e1 e2 = e1 :*: e2
-
-------------------------------------------------------------------
-
-infixl 6 :+:
-infixl 7 :*:
-data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
-    deriving (Show, Eq)
-
-expand :: Expr -> Expr
-expand ((e1 :+: e2) :*: e) = expand (e1 :*: e) :+: expand (e2 :*: e)
-expand (e :*: (e1 :+: e2)) = expand (e :*: e1) :+: expand (e :*: e2)
-expand (e1 :+: e2) = expand e1 :+: expand e2
-expand e@(e1 :*: e2) | expandOnlyMul e = e
-                     | otherwise = expand (expand e1 :*: expand e2)
-expand e = e
-
-expandOnlyMul :: Expr -> Bool
-expandOnlyMul (e1 :+: e2) = False
-expandOnlyMul (e1 :*: e2) = expandOnlyMul e1 && expandOnlyMul e2
-expandOnlyMul _ = True
-
---------------------------------------------------------------------
-
-infixl 6 :+:
-infixl 7 :*:
-data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
-    deriving (Show, Eq)
-
-expand' :: Expr -> Expr
-expand' ((e1 :+: e2) :*: e) = expand' e1 :*: expand' e :+: expand' e2 :*: expand' e
-expand' (e :*: (e1 :+: e2)) = expand' e :*: expand' e1 :+: expand' e :*: expand' e2
-expand' (e1 :+: e2) = expand' e1 :+: expand' e2
-expand' (e1 :*: e2) = expand' e1 :*: expand' e2
-expand' e = e
-
-expand a | a == expand' a = a
-         | otherwise      = expand $ expand' a
-
----------------------------------------------------------------------
-
-infixl 6 :+:
-infixl 7 :*:
-data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
-    deriving (Show, Eq)
-
-expand :: Expr -> Expr
-expand = fix go
-  where
-    go ((e1 :+: e2) :*: e) = (expand e1 :*: expand e :+: expand e2 :*: expand e)
-    go (e :*: (e1 :+: e2)) = (expand e :*: expand e1 :+: expand e :*: expand e2)
-    go (e1 :+: e2)         = expand e1 :+: expand e2
-    go (e1 :*: e2)         = expand e1 :*: expand e2
-    go e                   = e
-
-fix :: (Eq a) => (a -> a) -> a -> a
-fix f x = let x' = f x in if x' == x then x else fix f x'
-
-----------------------------------------------------------------
-
-infixl 6 :+:
-infixl 7 :*:
-data Expr = Val Int | Expr :+: Expr | Expr :*: Expr
-    deriving (Show, Eq)
-
-expand :: Expr -> Expr
-expand ((e1 :+: e2) :*: e) = expand (e1 :*: e) :+: expand (e2 :*: e)
-expand (e :*: (e1 :+: e2)) = expand (e :*: e1) :+: expand (e :*: e2)
-expand (e1 :+: e2) = expand e1 :+: expand e2
-expand (e1 :*: e2) = if a == e1 :*: e2 then a else expand a where
-    a = (expand e1 :*: expand e2)
-expand e = e
 
 ```
 test [test-expr](./chapter-4.5/test-expr.hs)
@@ -2357,15 +1682,7 @@ type Endo a = a -> a -- эндоморфизм
 Endo (Endo Int) -- эндоморфизм эндоморфизмов
 
 -- решение
-Endo Int = (Int -> Int) -- функция из инта-в-инт, эндоморфизм интов
 
-Endo (Endo Int) = (Int -> Int) -> (Int -> Int) -- функция берет функцию-из-инта-в-инт и возвращает функцию-из-инта-в-инт
--- эндоморфизм функций (эндоморфизмов) над интами
-
--- левые скобки раскрыть нельзя, на входе всегда функция.
--- результат применения этой функции можно применить либо к двум аргументам, либо (по очереди) к одному и второму
-(Int -> Int) -> (Int -> Int)
-(Int -> Int) -> Int -> Int
 ```
 test
 
@@ -2540,35 +1857,7 @@ instance Monoid Xor where
     mappend = undefined
 
 -- решение
--- Exclusive or (XOR, EOR or EXOR) is a logical operator which results true when 
--- either of the operands are true (one is true and the other one is false) 
 
--- true xor false = true
--- false xor false = false
--- true xor true = false
-
-class Monoid a where -- одно-параметрический интерфейс: тайпкласс
-    mempty :: a -- zero or neutral element
-    mappend :: a -> a -> a -- binary op, associative
-    -- helpers:
-    mconcat :: [a] -> a -- fold (flatMap)
-    mconcat = foldr mappend mempty
-
-newtype Xor = Xor { getXor :: Bool }
-    deriving (Eq, Show)
-instance Monoid Xor where
-    mempty = Xor False -- x xor mempty = mempty xor x = false xor x
-    mappend (Xor True) (Xor x) = Xor (not x)
-    mappend (Xor False) (Xor x) = Xor x
-
--- alternative
-
-newtype Xor = Xor { getXor :: Bool }
-    deriving (Eq, Show)
-
-instance Monoid Xor where
-    mempty = Xor False
-    Xor x `mappend` Xor y = Xor (x /= y)
 ```
 test
 
@@ -2657,58 +1946,6 @@ instance Monoid a => Monoid (Maybe' a) where
 
 -- решение
 
-newtype Maybe' a = Maybe' { getMaybe :: Maybe a }
-    deriving (Eq, Show)
-
-instance (Monoid a) => Monoid (Maybe' a) where
-    mempty = Maybe' (Just mempty) -- чтобы `mempty` не был равен `Maybe' Nothing`
-
-    mappend (Maybe' Nothing) (Maybe' Nothing) = Maybe' Nothing
-    mappend (Maybe' (Just x)) (Maybe' (Just y)) = Maybe' (Just (x `mappend` y))
--- а вот это я не понял, пояснительную бригаду, плз:
-    mappend (Maybe' Nothing) (Maybe' (Just y)) = Maybe' Nothing
-    mappend (Maybe' (Just x)) (Maybe' Nothing) = Maybe' Nothing
--- пояснение: закон `x append empty = x` в сочетании с фактом `Nothing is not empty` приводит к тому, что Nothing надо вернуть при
--- складывании с empty (который = Just)
-
--- reference
-
-{--
-законы: для моноида должны быть валидны законы: правая и левая единица (нейтральность операции); ассоциативность
-1) mempty `mappend` x = x
-2) x `mappend` mempty = x
-3) (x `mappend` y) `mappend` z = x `mappend` (y `mappend` z)
-
---}
-import Prelude hiding (Monoid, mappend, mempty)
-class Monoid a where -- одно-параметрический интерфейс: тайпкласс
-    mempty :: a -- zero or neutral element
-    mappend :: a -> a -> a -- binary op, associative
-    -- helpers:
-    mconcat :: [a] -> a -- fold (flatMap)
-    mconcat = foldr mappend mempty
-
-instance (Monoid a) => Monoid (Maybe a) where
-    mempty = Nothing
-    Nothing `mappend` x = x
-    x `mappend` Nothing = x
-    Just x `mappend` Just y = Just $ x `mappend` y
-
-instance (Monoid a, Monoid b) => Monoid (a, b) where -- требование (контекст): оба элемента есть моноиды
-    mempty = (mempty, mempty) -- нейтраль из а, нейтраль из б (они оба моноиды ведь)
-    (x1, y1) `mappend` (x2, y2) = (x, y) where
-        x = x1 `mappend` x2 -- аппенд из моноида а
-        y = y1 `mappend` y2 -- аппенд из моноида б
-
--- alternative
-
-newtype Maybe' a = Maybe' { getMaybe :: Maybe a }
-    deriving (Eq,Show)
-
-instance Monoid a => Monoid (Maybe' a) where
-    mempty = Maybe' $ Just mempty
-    mappend (Maybe' (Just a)) (Maybe' (Just b)) = Maybe' $ Just $ mappend a b
-    _ `mappend` _ = Maybe' $ mempty -- works only in solutions checker (stepik)
 ```
 test
 
@@ -2737,104 +1974,6 @@ newtype ListMap k v = ListMap { getListMap :: [(k,v)] }
     deriving (Eq,Show)
 
 -- решение: обеспечить уникальность ключей удалением записи перед вставкой
-
-import Prelude hiding (lookup)
-import qualified Data.List as L
-
-class MapLike m where
-    empty :: m k v
-    lookup :: Ord k => k -> m k v -> Maybe v
-    insert :: Ord k => k -> v -> m k v -> m k v
-    delete :: Ord k => k -> m k v -> m k v
-    fromList :: Ord k => [(k,v)] -> m k v
-    fromList [] = empty
-    fromList ((k,v):xs) = insert k v (fromList xs)
-
-newtype ListMap k v = ListMap { getListMap :: [(k,v)] }
-    deriving (Eq,Show)
-
-instance MapLike ListMap where
-    empty = ListMap []
-    lookup key = L.lookup key . getListMap
-    insert key value = ListMap . ((key,value):) . getListMap . delete key
-    delete key = ListMap . filter ((key /=) . fst) . getListMap
-
-----------------------------------------------------------------------------
-
-import Prelude hiding (lookup)
-import qualified Data.List as L
-
-class MapLike m where
-    empty :: m k v
-    lookup :: Ord k => k -> m k v -> Maybe v
-    insert :: Ord k => k -> v -> m k v -> m k v
-    delete :: Ord k => k -> m k v -> m k v
-    fromList :: Ord k => [(k,v)] -> m k v
-    fromList [] = empty
-    fromList ((k,v):xs) = insert k v (fromList xs)
-
-newtype ListMap k v = ListMap { getListMap :: [(k,v)] }
-    deriving (Eq,Show)
-
-instance MapLike ListMap where
-    empty = ListMap []
-    lookup k (ListMap xs) = case L.find ((==k) . fst) xs of
-        Just (_,v) -> Just v
-        _ -> Nothing
-    insert k v m = ListMap $ (k,v) : getListMap (delete k m)
-    delete k (ListMap xs) = ListMap $ filter ((/=k) . fst) xs
-
-----------------------------------------------------------------------
-
-import Prelude hiding (lookup)
-import qualified Data.List as L
-import Data.Coerce
-import Data.Ord
-import Data.Function
-
-class MapLike m where
-    empty :: m k v
-    lookup :: Ord k => k -> m k v -> Maybe v
-    insert :: Ord k => k -> v -> m k v -> m k v
-    delete :: Ord k => k -> m k v -> m k v
-    fromList :: Ord k => [(k,v)] -> m k v
-    fromList [] = empty
-    fromList ((k,v):xs) = insert k v (fromList xs)
-
-newtype ListMap k v = ListMap { getListMap :: [(k,v)] }
-    deriving (Eq,Show)
- 
-instance MapLike ListMap where
-    empty = ListMap []
-    lookup = (coerce :: (k -> [(k, v)] -> Maybe v) -> k -> ListMap k v -> Maybe v) L.lookup
-    insert k v = (coerce :: ([(k, v)] -> [(k, v)]) -> ListMap k v -> ListMap k v) 
-        $ L.insertBy (comparing fst) (k,v) . L.deleteBy ((==) `on` fst) (k,undefined)
-    delete k = (coerce :: ([(k, v)] -> [(k, v)]) -> ListMap k v -> ListMap k v)
-        $ L.deleteBy ((==) `on` fst) (k,undefined)
-
-------------------------------------------------------------------
-
-import Data.Function (on)
-import Prelude hiding (lookup)
-import qualified Data.List as L
-
-class MapLike m where
-    empty :: m k v
-    lookup :: Ord k => k -> m k v -> Maybe v
-    insert :: Ord k => k -> v -> m k v -> m k v
-    delete :: Ord k => k -> m k v -> m k v
-    fromList :: Ord k => [(k,v)] -> m k v
-    fromList [] = empty
-    fromList ((k,v):xs) = insert k v (fromList xs)
-
-newtype ListMap k v = ListMap { getListMap :: [(k,v)] }
-    deriving (Eq,Show)
-
-instance MapLike ListMap where
-    empty = ListMap []
-    lookup k = L.lookup k . getListMap
-    insert k v = ListMap . ((k,v) :) . getListMap . delete k
-    delete k = ListMap . L.deleteBy ((==) `on` fst) (k,undefined) . getListMap
 
 ```
 test [maplike](./chapter-4.6/test-maplike.hs)

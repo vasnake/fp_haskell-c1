@@ -47,22 +47,7 @@ GHCi> addTwoElements 2 12 [85,0,6]
 [2,12,85,0,6]
 
 addTwoElements :: a -> a -> [a] -> [a]
--- addTwoElements x y lst = x : y : lst
--- addTwoElements x y = (x :) . (y :)
--- addTwoElements = (. (:)) . (.) . (:)
-addTwoElements = (.) `on` (:)
 
--- pointfree https://pointfree.io/
-addTwoElements x y l = x : y : l
-addTwoElements x y l = (:) x ((:) y l)
-addTwoElements x y l = ((:) x . (:) y) l
-addTwoElements x y = (:) x . (:) y
-addTwoElements x y = ((:) x .) . (:)) y
-addTwoElements x = ((:) x .) . (:)
-...
--- Использовал 2 преобразования:
-\x -> f x <=> f 
-f (g x) <=> (f . g) x
 ```
 test
 
@@ -79,13 +64,7 @@ nTimes 'z' 0 = ""
 nTimes 'z' (-1) = ""
 
 nTimes:: a -> Int -> [a]
-nTimes _ 0 = [] -- eager recursion
-nTimes elem n
-    | n < 0     = [] -- just in case, make it total function
-    | otherwise = elem : nTimes elem (n - 1)
--- replicate 3 10
--- take 10 (repeat 5)
--- а можно с аккумулятором, через рекурсивного хелпера
+
 ```
 test [ntimes](./chapter-3.1/test-ntimes.hs)
 
@@ -209,10 +188,6 @@ GHCi> oddsOnly [2,5,7,10,11,12]
 -- Для анализа четности можно использовать функции `odd` и `even` стандартной библиотеки
 
 oddsOnly :: Integral a => [a] -> [a]
-oddsOnly [] = []
-oddsOnly (x:xs)
-    | odd x = x : oddsOnly xs
-    | otherwise = oddsOnly xs
 
 ```
 test [odds_only](./chapter-3.1/test-odds_only.hs)
@@ -268,7 +243,7 @@ GHCi> isPalindrome [1, 2]
 False
 
 isPalindrome :: Eq a => [a] -> Bool
-isPalindrome xs = reverse xs == xs
+
 ```
 test
 
@@ -305,21 +280,6 @@ repl
 GHCi> sum3 [1,2,3] [4,5] [6]
 [11,7,3]
 
--- редуцирование до sum2
-sum3 :: Num a => [a] -> [a] -> [a] -> [a]
-sum3 xs ys zs = xs `sum2` ys `sum2` zs
-  where
-    sum2 [] bs = bs
-    sum2 as [] = as
-    sum2 (a : as) (b : bs) = (a + b) : sum2 as bs
-
--- добивка 0 пустых списков
-sum3 :: Num a => [a] -> [a] -> [a] -> [a]
-sum3 [] [] [] = []
-sum3 [] ys zs = sum3 [0] ys zs
-sum3 xs [] zs = sum3 xs [0] zs
-sum3 xs ys [] = sum3 xs ys [0]
-sum3 (x:xs) (y:ys) (z:zs) = x+y+z : sum3 xs ys zs
 ```
 test [sum3](./chapter-3.1/test-sum3.hs)
 
@@ -345,38 +305,6 @@ GHCi> groupElems [1,2,3,2,4]
 
 -- повторяющиеся элементы собирает во внутренний список
 -- не-повторяющиеся элементы имеют свои собственные группы-списки
-
--- простая рекурсия с гарантированно непустым результатом внутри
-groupElems :: Eq a => [a] -> [[a]]
-groupElems [] = []
-groupElems [x] =[[x]]
-groupElems (x : xs) =   if x /= head (head next)
-                        then [x] : next
-                        else (x : head next) : tail next where
-                            next = groupElems xs
-
--- с аккумулятором и "забеганием вперед"
-groupElems :: Eq a => [a] -> [[a]]
-groupElems [] = []
-groupElems (x:xs) = take' [x] xs where
-    take' curr [] = [curr]
-    take' (x:xs) (y:ys) = if x == y
-                          then take' (x:y:xs) ys
-                          else (x:xs) : take' [y] ys
--- то же самое но сбоку
-groupElems :: Eq a => [a] -> [[a]]
-groupElems [] = []
-groupElems (x : xs) = groupElems' [x] xs
-    where groupElems' eqs [] = [eqs]
-          groupElems' eqs (x:xs) 
-                      | (head eqs == x) = groupElems' (x : eqs) xs
-                      | otherwise = eqs : groupElems' [x] xs
-
--- фокус с функцией `span`
-groupElems :: Eq a => [a] -> [[a]]
-groupElems []     = []
-groupElems (x:xs) = (x:ys) : groupElems zs
-    where (ys,zs) = span (== x) xs
 
 ```
 test [group_elems](./chapter-3.1/test-group_elems.hs)
@@ -489,14 +417,6 @@ GHCi> readDigits "365"
 readDigits :: String -> (String, String)
 readDigits = undefined
 
-readDigits :: String -> (String, String)
-readDigits = span (<= '9')
-
-readDigits :: String -> (String, String)
-readDigits = span (\x -> (>= '0') x && (<= '9') x)
-
-readDigits :: String -> (String, String)
-readDigits = break (not . isDigit)
 ```
 test [read_digits](./chapter-3.2/test-read_digits.hs)
 
@@ -512,9 +432,6 @@ GHCi> filterDisj (< 10) odd [7,8,10,11,12]
 filterDisj :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
 filterDisj = undefined
 
-filterDisj :: (a -> Bool) -> (a -> Bool) -> [a] -> [a]
-filterDisj p1 p2 = filter (\x -> p1 x || p2 x)
--- filterDisj = (filter .) . liftM2 (||) -- pointfree.io
 ```
 test [filter_disj](./chapter-3.2/test-filter_disj.hs)
 
@@ -533,14 +450,6 @@ GHCi> qsort [1,3,2,5]
 
 qsort :: Ord a => [a] -> [a]
 qsort = undefined
-
-qsort :: Ord a => [a] -> [a]
-qsort [] = []
-qsort (x:xs) = let (l, r) = splitBy (< x) xs where
-  splitBy pred = foldr f ([], []) where
-    f x ~(yes, no) | pred x = (x : yes, no) 
-                   | otherwise = (yes, x : no)
-  in qsort l ++ x : qsort r
 
 ```
 test [qsort](./chapter-3.2/test-qsort.hs)
@@ -607,32 +516,7 @@ ghci> squares'n'cubes [3,4,5]
 [9,27,16,64,25,125]
 
 squares'n'cubes :: Num a => [a] -> [a]
-squares'n'cubes = concatMap (\x -> [x^2, x^3])
 
-squares'n'cubes :: Num a => [a] -> [a]
-squares'n'cubes [] = []
-squares'n'cubes (x:xs) = x^2 : x^3 : squares'n'cubes xs
-
-{--
-some definitions:
-
-ghci> :i concatMap
-concatMap :: Foldable t => (a -> [b]) -> t a -> [b]
-        -- Defined in ‘Data.Foldable’
-
-ghci> :i (^)
-(^) :: (Num a, Integral b) => a -> b -> a       -- Defined in ‘GHC.Real’
-infixr 8 ^
-
-ghci> :i (**)
-type Floating :: * -> Constraint
-class Fractional a => Floating a where
-  ...
-  (**) :: a -> a -> a
-  ...
-        -- Defined in ‘GHC.Float’
-infixr 8 **
---}
 ```
 test
 
@@ -650,56 +534,6 @@ ghci> perms [1,2,3]
 
 perms :: [a] -> [[a]]
 perms = undefined
-
--- expected
-perms :: [a] -> [[a]]
-perms [] = [[]]
-perms [x] = [[x]]
-perms (x:xs) = concatMap (insertElem x) (perms xs) where
-			insertElem x [] = [[x]]
-			insertElem x yss@(y:ys) = (x:yss) : map (y:) (insertElem x ys)
-
-{--
-идея
-Чтобы получить новый список перестановок надо для каждой предыдущей добавить элемент во все возможные места, например: 
-3, [1,2] -> [3,1,2], [1,3,2], [1,2,3]
-
-Идея состоит в том, чтобы сгенерировать все перестановки рекурсивно. Для этого мы вызываем `perms xs` и, по предположению, получаем все перестановки для хвоста нашего списка. Например, если список был `[1, 2, 3]`, мы получили все перестановки списка `[2, 3]`, то есть `[[2, 3], [3, 2]]`. Теперь надо преобразовать этот ответ для хвоста в ответ для нашего исходного списка. Для этого требуется недостающий элемент `1` вставить всеми возможными способами в полученные перестановки.
-
-Чтобы сделать это, мы реализуем функцию `insertElem x xs`, которая вставляет `x` во все позиции списка `xs`, то есть, первым элементом, между первым и вторым, между вторым и третьим, и так далее. Эта функция тоже работает рекурсивно.
---}
-
-perms :: [a] -> [[a]]
-perms [] = [[]]
-perms (x:xs) = concatMap (insertAtEveryPosition x) (perms xs)
-  where
-    insertAtEveryPosition :: a -> [a] -> [[a]]
-    insertAtEveryPosition x [] = [[x]]
-    insertAtEveryPosition x (y:ys) = (x:y:ys) : map (y:) (insertAtEveryPosition x ys)
-
-perms :: [a] -> [[a]]
-perms [] = [[]]
-perms (x:xs) = concatMap (helper []) $ perms xs
-  where helper l [] = [l ++ [x]]
-        helper l r  = (l ++ [x] ++ r) : helper (l ++ [head r]) (tail r)
-
-perms :: [a] -> [[a]]
-perms []     = [[]]
-perms (x:xs) = concatMap (addEverywhere x) $ perms xs
-  where addEverywhere a []     = [[a]]
-        addEverywhere a (x:xs) = (a:x:xs) : (map (x:) . addEverywhere a) xs
-
-perms :: [a] -> [[a]]
-perms [] = [[]]
-perms l  = concatMap (\(x:xs) -> map (\tl -> (x:tl)) (perms xs)) (shifts l)
-  where
-    shifts xs = map (\y -> drop y xs ++ take y xs) [1..(length xs)]
-
-perms :: [a] -> [[a]]
-perms [] = [[]]
-perms (x : xs) = concatMap (\p -> shuffle x p) $ perms xs where
-                    shuffle y [] = [[y]]
-                    shuffle y s@(x : xs) = (y : s) : (map (x : ) (shuffle y xs))
 
 ```
 test [test-perms](./chapter-3.2/test-perms.hs)
@@ -778,7 +612,6 @@ delAllUpper = undefined
 ghci> unwords . filter (any (\c -> c >= 'a' && c <= 'z')) . words $ "Abc IS not ABC"
 "Abc not"
 
-delAllUpper = unwords . filter (any (\c -> c >= 'a' && c <= 'z')) . words
 ```
 test
 
@@ -820,15 +653,6 @@ GHCi> max3 "AXZ" "YDW" "MLK"
 max3 :: Ord a => [a] -> [a] -> [a] -> [a]
 max3 = undefined
 
--- pointfree, все три списка "подразумеваются", нам нужен оператор выбора макс. из трех элементов, пусть будет лямбда
--- макс из а и б, потом (спасибо $) макс ц и макс-а-б
-max3 = zipWith3 (\a b c -> max c $ max a b)
-
-max3 = zipWith3 ((max .) . max)
-
-max3 = (zipWith max .) . zipWith max
-
-max3 (x:xs) (y:ys) (z:zs) = maximum [x,y,z] : max3 (xs) (ys) (zs)
 ```
 test
 
@@ -885,17 +709,6 @@ GHCi> take 10 $ fibStream
 fibStream :: [Integer]
 fibStream = undefined
 
-fibStream :: [Integer]
-fibStream = 0 : zipWith (+) fibStream (1 : fibStream)
-
--- reference
--- fibonacci in linear time, in reverse order
-fibonacci :: Integer -> Integer
-fibonacci = fib 0 1 -- fib(0), fib(1), n -- Eta reduced
-fib :: Integer -> Integer -> Integer -> Integer
-fib a b n | n == 0  = a
-          | n > 0   = fib b (a + b) (n - 1)
-          | n < 0   = fib (b - a) a (n + 1)
 ```
 test [fib_stream](./chapter-3.3/test-fib_stream.hs)
 
@@ -959,8 +772,6 @@ repeatHelper = undefined
 let repeat x = xs where xs = x:xs -- repeat 1 = [1,1,1,1, ...]
 let iterate f x = x : iterate f (f x) -- iterate (+ 3) 1 = [1,4,7,10,13,16,19, ...
 
--- нужна функция одного аргумента, которая при вызове возвращает свой аргумент, это id
-repeatHelper = id
 ```
 test
 
@@ -1071,16 +882,6 @@ addEven (Odd n) m | m `mod` 2 == 0 = Odd (n + m)
 -- определение Odd уже присутствует в вызывающей программе
 instance Enum Odd where
 
-instance Enum Odd where
-  succ (Odd a) = Odd $ a + 2
-  pred (Odd a) = Odd $ a - 2
-  toEnum x = Odd $ toInteger x
-  fromEnum (Odd a) = fromEnum a
-  enumFrom a = [a,succ a..]
-  enumFromTo a b = [a,succ a..b]
-  enumFromThen (Odd a) (Odd b) = map Odd [a, b..]
-  enumFromThenTo (Odd a) (Odd b) (Odd c) = map Odd [a, b..c]
-
 ```
 test [odd](./chapter-3.3/test-odd.hs)
 
@@ -1144,12 +945,6 @@ GHCi> change 7
 change :: (Ord a, Num a) => a -> [[a]]
 change = undefined
 
-change :: (Ord a, Num a) => a -> [[a]]
-change 0 = [[]]
-change s = [ c:cs | c <- coins, c <= s, cs <- change (s - c) ]
-
-change :: (Ord a, Num a) => a -> [[a]]
-change s =  [ c:cs | c <- coins, c <= s, cs <- if c == s then [[]] else change (s - c) ]
 ```
 test [change](./chapter-3.3/test-change.hs)
 
@@ -1256,15 +1051,6 @@ concatList = foldr undefined undefined
 foldr :: (a -> b -> b) -> b -> [a] -> b
 -- с хвоста: возвращает б, на входе: список а, инициализирующее значение б, функция редуцирования (a,b) -> b
 
-concatList :: [[a]] -> [a]
-concatList xs = foldr binOp ini xs where
-  binOp = (++)
-  ini = []
--- и отрефакторить:
-concatList xs = foldr binOp ini xs where {binOp = (++); ini = []}
-concatList = foldr binOp ini where {binOp = (++); ini = []}
--- ответ:
-concatList = foldr (++) []
 ```
 test
 
@@ -1319,19 +1105,6 @@ lengthList = foldr undefined undefined
 -- имеем свертку
 foldr :: (a -> b -> b) -> b -> [a] -> b -- параметры: функ. a -> b -> b; затравка b; список [a]; результат: b
 
--- тогда
-lengthList xs = foldr binOp ini xs where
-  binOp xa xb = xb + 1 -- при наличии элемента списка xa добавляем 1 к частичному результату xb
-  ini = 0 -- количество элементов пустого списка
-
--- рефакторинг:
-lengthList xs = foldr binOp ini xs where {binOp xa xb = xb + 1; ini = 0}
-lengthList = foldr binOp ini where {binOp xa xb = xb + 1; ini = 0} -- pointfree
--- ответ:
-lengthList = foldr (\ _ acc -> acc + 1) 0
-
--- альтернатива
-lengthList = foldr (const succ) 0
 ```
 test
 
@@ -1350,17 +1123,6 @@ sumOdd = foldr (\x s -> undefined) undefined
 -- имеем свертку
 foldr :: (a -> b -> b) -> b -> [a] -> b -- параметры: функ. a -> b -> b; затравка b; список [a]; результат: b
 
--- тогда
-sumOdd = foldr (\ x s -> x `binOp` s) ini where
-  ini = 0 -- сумма пустого списка = 0
-  binOp x acc = if odd x then x + acc else acc
-
--- ответ после рефакторинга:
-sumOdd = foldr (\ x s -> if odd x then x + s else s) 0
-
--- альтернатива
-sumOdd = foldr (\x s -> s + x * (x `mod` 2)) 0
-sumOdd = foldr (\ x s -> s + x * mod x 2) 0
 ```
 test
 
@@ -1409,7 +1171,7 @@ foldr (:) []
 foldr (:) [] xs -- binOp ini list
 -- к хвосту подклеиваем голову = сборка списка, получим идентичный входному списко
 -- ответ
-id
+
 ```
 test
 
@@ -1422,7 +1184,6 @@ foldr const undefined xs -- binOp ini list
 -- следовательно, при первой же подстановке, const вернет первый элемент списка
 -- foldr const undefined [1 ..] ~> const 1 (not-interested) -- второй аргумент даже вычисляться не будет
 -- ответ:
-head
 
 ```
 test
@@ -1460,37 +1221,7 @@ foldr (-) x [2,1,5]
 foldl (-) x [2,1,5]
 
 -- задачка на понимание правой и левой ассоциативности и на решение уравнения
-2 - (1 - (5 - x)) -- foldr
-((x - 2) - 1) - 5 -- foldl
 
-2 - (1 - (5 - x)) = ((x - 2) - 1) - 5
-
-x = 7
-
-ghci> foldl (-) (7) [2,1,5]
--1
-ghci> foldr (-) (7) [2,1,5]
--1
-
--- :{\n ..lines.. \n:}\n       multiline command
-:{
-solve x
-  | r == l    = x
-  | otherwise = solve (x + 1)
-    where
-      r = foldr (-) x xs
-      l = foldl (-) x xs
-      xs = [2,1,5]
-:}
-solve (-33)
-
--- f (n:ns) = if foldr (-) n [2,1,5] == foldl (-) n [2,1,5] then n else f ns
-ghci> f (n:ns) = if foldr (-) n [2,1,5] == foldl (-) n [2,1,5] then n else f ns
-ghci> f [-33 .. 33]
-7
-
-ghci> [x | x <- [-10..10], (foldr (-) x [2,1,5]) == (foldl (-) x [2,1,5])]
-[7]
 ```
 test
 
@@ -1665,14 +1396,6 @@ meanList = someFun . foldr someFoldingFun someIni
 meanList :: [Double] -> Double
 meanList = undefined
 
-:{
-meanList :: [Double] -> Double
-meanList = someFun . foldr someFoldingFun someIni where
-  -- sum / length. What about empty list?
-  someFun (sum, len) = sum / len -- div by zero, problem
-  someFoldingFun x (psum, plen) = (psum + x, plen + 1) -- foldr binOp, first: list elem, second: partial (sum, len)
-  someIni = (0, 0) -- empty list (sum, len)
-:}
 ```
 test
 
@@ -1692,41 +1415,6 @@ GHCi> evenOnly ['a'..'z']
 evenOnly :: [a] -> [a]
 evenOnly = undefined
 
--- разбор
-ghci> [1 .. 10]
-[1,2,3,4,5,6,7,8,9,10]
--- но после фильтра (нам надо реализовать фильтр) получаем
-[2,4,6,8,10]
--- удалены элементы с индексами 0, 2, 4, ...
--- эти индексы названы "нечетными", что приводит нас к дополнению: индексация начинается с 1
-
--- reference
-foldr :: (a -> b -> b) -> b -> [a] -> b
-foldr f ini [] = ini
-foldr f ini (x:xs) = x `f` (foldr f ini xs)
-
-foldl :: (b -> a -> b) -> b -> [a] -> b
-foldl f ini [] = ini
-foldl f ini (x:xs) = foldl f (f ini x) xs -- ленивая, не строгая f
-
--- решение: foldl ибо нумерация начинается слева, с 1
-:{
-evenOnly :: [a] -> [a]
-evenOnly = snd . foldl binOp ini where -- pointfree, parameter not mentioned
-  ini = (0, []) -- pre-first idx, resulting list
-  binOp (pIdx, pList) x = if odd idx then (idx, pList) else (idx, pList ++ [x]) where idx = succ pIdx
-:}
-
-ghci> evenOnly ['a'..'z']
-"bdfhjlnprtvxz"
-ghci> evenOnly [1 .. 10]
-[2,4,6,8,10]
-
--- альтернатива на правой свертке
-evenOnly :: [a] -> [a]
-evenOnly = snd . foldr (\a (xs, ys) -> (a : ys, xs)) ([], [])
--- чередует добавление головы, получая список раскиданный по двум
--- возвращает правильный список (правильной — это не тот, в который был добавлен последний элемент
 ```
 test
 
@@ -1761,45 +1449,6 @@ foldl f ini (x:xs) = foldl f (f ini x) xs -- ленивая, не строгая
 -- этот процесс будет продолжаться, пока не кончится список или память.
 -- Редукция выражений не дает работать функции свертки до достижения конца списка.
 -- Важно: если редуцирующая f не строгая по второму аргументу, то далее в глубину можно не ходить.
-
-{--
-> An expression is in weak head normal form (WHNF), if it is either:
-конструктор, билт-ин ф., лямбда абстракция.
-Их аргументы не обязаны быть нормализованы.
---}
-
--- решение на левой свертке я не нашел
-
--- решение на правой свертке (как сказано в лекции: "позволяет работать с бесконечными списками")
--- чтобы это тут сработало, надо реализацию сделать ленивой: никаких пат.мат, никакий форсажей.
--- бинарный оператор редукции должен быть ленивым: не содержать редексов и пат.мат. (а только конструкторы, встроенные ф. или лямбды)
--- https://wiki.haskell.org/Lazy_pattern_match
--- https://stackoverflow.com/questions/2263541/what-does-mean-in-haskell
-
--- берем прошлое решение
-evenOnly :: [a] -> [a]
-evenOnly = snd . foldr (\a (xs, ys) -> (a : ys, xs)) ([], [])
--- модифицируем в ленивое решение (встроенные операции с парой, конструктор пары, нет пат.мат. на параметры)
-evenOnly :: [a] -> [a]
-evenOnly = snd . foldr (\ a p -> lazyOperation a p) ([], []) where lazyOperation = (\ a p -> (a : snd p, fst p))
--- рефакторим немного
-evenOnly = snd . foldr (\ a p -> (a : snd p, fst p)) ([], [])
-
--- смотрим альтернативные решения, восхищаемся
-evenOnly :: [a] -> [a]
-evenOnly = snd . foldr (\x ~(xs, ys) -> (x : ys, xs)) ([], []) -- тильду видишь?
-
-evenOnly :: [a] -> [a]
-evenOnly = foldr impl [] . zip (cycle [False, True])
-    where impl (False, x) xs = xs
-          impl (True,  x) xs = x:xs
-
--- проверка
-ghci> :set +s
-ghci> take 3 (evenOnly [1 ..])
-[2,4,6]
-(0.00 secs, 71,080 bytes)
-ghci> :unset +s
 
 ```
 test
@@ -1884,18 +1533,6 @@ repl
 lastElem :: [a] -> a
 lastElem = foldl1 undefined
 
--- посмотрим на референс
-foldl1 f (x:xs) = foldl f x xs -- using `foldl` with x as an ini value
-foldl f ini (x:xs) = foldl f (f ini x) xs
--- первый аргумент f это "аккумулятор", второй аргумент это очередной элемент списка
--- надо вернуть второй аргумент, это флипнутый конст
-
-lastElem :: [a] -> a
-lastElem = foldl1 (\ _ x -> x)
-
--- альтернатива
-lastElem :: [a] -> a
-lastElem = foldl1 (flip const)
 ```
 test
 
@@ -2155,20 +1792,6 @@ ghci> unfoldr (\x -> if x >= 10 || x < 0 then Nothing else Just (x, x+2)) 0
 [0,2,4,6,8]
 
 -- решение: нужно от второго значения пары двигать вниз, до достижения первого значения
-:{
-revRange :: (Char,Char) -> [Char]
-revRange (bottom, top) = unfoldr g top
-  where g = (\ x -> if x < bottom then Nothing else Just (x, pred x))
-:}
-
-ghci> revRange ('a','z')
-"zyxwvutsrqponmlkjihgfedcba"
-
--- альтернатива
-revRange :: (Char,Char) -> [Char]
-revRange = unfoldr g where -- pointfree, pair (bottom, top) is (a, b) parameters for `g`
-    g (a, b) | a > b = Nothing 
-    g (a, b) = Just (b, (a, pred b))
 
 ```
 test

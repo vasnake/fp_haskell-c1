@@ -110,20 +110,6 @@ instance Functor Point3D where
 
 -- solution
 
-instance Functor Point3D where
-    -- fmap :: (a -> b) -> f a -> f b
-    fmap f (Point3D x y z) = Point3D (f x) (f y) (f z)
-
--- reference
-
--- type-class, полностью полиморфный, без ограничений на типы (переменные типов) a, b, f
--- класс типов параметризован переменной (типа) `f`
-class Functor f where
-    -- fmap "поднимает" функцию `a -> b` в "контекст" `f`: принимает значение `f a`, на выходе значение `f b`
-    -- где `f a`, `f b` это два типа (конструктора), параметризованных а и бе, соответственно.
-    -- при этом сам контекст не меняется, нет "эффекта"
-    fmap :: (a -> b) -> f a -> f b -- видно, что эф это конструктор типов, ибо "применяется" к а и к бе
--- переменная `f` используется как функция над типами, у нее должен быть "стрелочный кайнд": `* -> *`
 ```
 test
 
@@ -147,27 +133,6 @@ instance Functor GeomPrimitive where
 
 -- solution
 
--- data GeomPrimitive a = Point (Point3D a) | LineSegment (Point3D a) (Point3D a) deriving Show
-instance Functor GeomPrimitive where
-    -- fmap :: (a -> b) -> f a -> f b
-    fmap f (Point p) = Point (fmap f p)
-    fmap f (LineSegment p1 p2) = LineSegment (fmap f p1) (fmap f p2)
-
--- reference
-
--- type-class, полностью полиморфный, без ограничений на типы (переменные типов) a, b, f
--- класс типов параметризован переменной (типа) `f`
-class Functor f where
-    -- fmap "поднимает" функцию `a -> b` в "контекст" `f`: принимает значение `f a`, на выходе значение `f b`
-    -- где `f a`, `f b` это два типа (конструктора), параметризованных а и бе, соответственно.
-    -- при этом сам контекст не меняется, нет "эффекта"
-    fmap :: (a -> b) -> f a -> f b -- видно, что эф это конструктор типов, ибо "применяется" к а и к бе
--- переменная `f` используется как функция над типами, у нее должен быть "стрелочный кайнд": `* -> *`
--- <$> -- infix synonim for fmap
-
-test = (+ 1) <$> Point3D 5 6 7 -- Point3D 6 7 8
-test2 = (+ 1) <$> Point (Point3D 0 0 0) -- Point (Point3D 1 1 1)
-test3 = (+ 1) <$> LineSegment (Point3D 0 0 0) (Point3D 1 1 1) -- LineSegment (Point3D 1 1 1) (Point3D 2 2 2)
 ```
 test
 
@@ -237,24 +202,6 @@ instance Functor Tree where
 
 -- solution
 
--- data Tree a = Leaf (Maybe a) | Branch (Tree a) (Maybe a) (Tree a) deriving Show
-import Data.Functor
-instance Functor Tree where
-    -- fmap :: (a -> b) -> f a -> f b
-    fmap f (Leaf maybeA) = Leaf (f <$> maybeA)
-    fmap f (Branch left maybeA right) = Branch (f <$> left) (f <$> maybeA) (f <$> right)
-
--- reference
-
--- type-class, полностью полиморфный, без ограничений на типы (переменные типов) a, b, f
--- класс типов параметризован переменной (типа) `f`
-class Functor f where
-    -- fmap "поднимает" функцию `a -> b` в "контекст" `f`: принимает значение `f a`, на выходе значение `f b`
-    -- где `f a`, `f b` это два типа (конструктора), параметризованных а и бе, соответственно.
-    -- при этом сам контекст не меняется, нет "эффекта"
-    fmap :: (a -> b) -> f a -> f b -- видно, что эф это конструктор типов, ибо "применяется" к а и к бе
--- переменная `f` используется как функция над типами, у нее должен быть "стрелочный кайнд": `* -> *`
--- <$> -- infix synonim for fmap (Data.Functor)
 ```
 test
 
@@ -377,27 +324,6 @@ instance Functor (Map k1 k2) where
 
 -- solution
 
--- data Entry k1 k2 v = Entry (k1, k2) v  deriving Show
--- data Map k1 k2 v = Map [Entry k1 k2 v]  deriving Show
-instance Functor (Entry k1 k2) where
-    -- fmap :: (a -> b) -> f a -> f b
-    fmap f (Entry k v) = Entry k $ f v
-
-instance Functor (Map k1 k2) where
-    -- fmap :: (a -> b) -> f a -> f b
-    fmap f (Map lst) = Map $ fmap (fmap f) lst
-
--- reference
-
--- type-class, полностью полиморфный, без ограничений на типы (переменные типов) a, b, f
--- класс типов параметризован переменной (типа) `f`
-class Functor f where
-    -- fmap "поднимает" функцию `a -> b` в "контекст" `f`: принимает значение `f a`, на выходе значение `f b`
-    -- где `f a`, `f b` это два типа (конструктора), параметризованных а и бе, соответственно.
-    -- при этом сам контекст не меняется, нет "эффекта"
-    fmap :: (a -> b) -> f a -> f b -- видно, что эф это конструктор типов, ибо "применяется" к а и к бе
--- переменная `f` используется как функция над типами, у нее должен быть "стрелочный кайнд": `* -> *`
--- <$> -- infix synonim for fmap
 ```
 test
 
@@ -522,27 +448,6 @@ execLoggers x f g = undefined
 
 -- solution
 
--- data Log a = Log [String] a deriving Show
-toLogger :: (a -> b) -> String -> (a -> Log b)
-toLogger f msg a = Log [msg] (f a)
-
-execLoggers :: a -> (a -> Log b) -> (b -> Log c) -> Log c
-execLoggers x f g = Log (lst1 ++ lst2) c where
-    Log lst1 b = f x
-    Log lst2 c = g b
-
--- alternative
-
-instance Functor Log where
-  fmap f (Log lst_str x) = Log lst_str (f x)
-
-toLogger :: (a -> b) -> String -> (a -> Log b)
-toLogger f msg = \x -> fmap f (Log [msg] x)
-
-execLoggers :: a -> (a -> Log b) -> (b -> Log c) -> Log c
-execLoggers x f g = case f x of
-    Log lst1 b -> case g b of 
-        Log lst2 c -> Log (concat [lst1, lst2]) c
 ```
 test
 
@@ -628,18 +533,6 @@ returnLog = undefined
 
 -- solution
 
--- data Log a = Log [String] a deriving Show
--- типа, сделали стрелку Клейсли
-returnLog :: a -> Log a
-returnLog = Log []
-
--- alternative
-
-instance Monad Log where
-    return a = Log [] a
-
-returnLog :: a -> Log a
-returnLog = return
 ```
 test
 
@@ -749,24 +642,6 @@ execLoggersList = undefined
 -- solution
 -- поднять первый элемент в монаду и сделать свертку стрелок Клейсли (monad bind)
 
-execLoggersList :: a -> [a -> Log a] -> Log a
-execLoggersList x = foldl (>>=) (return x) 
--- execLoggersList = foldl (>>=) . return
-
--- reference
-
-foldl :: (b -> a -> b) -> b -> [a] -> b
-data Log a = Log [String] a deriving Show
-instance Functor Log where
-  fmap = liftM
-instance Applicative Log where
-  pure = return
-  (<*>) = ap
-instance Monad Log where
-    -- return :: a -> m a -- pure
-    return = returnLog
-    -- (>>=) :: m a -> (a -> m b) -> m b --  bind, infixl
-    (>>=) = bindLog
 ```
 test
 
@@ -893,33 +768,6 @@ instance Functor SomeType where
 -- solution: задачка на toKleisli
 -- Есть монада, есть стрелка. Нужно из стрелки получить стрелку Клейсли (toKleisli)
 
--- data SomeType a = SomeType (a, Int) deriving (Show, Monad)
-instance Functor SomeType where
-    -- fmap :: (a -> b) -> f a -> f b
-    fmap f x = x >>= (return . f) -- (монада x) bind (стрелка Клейсли), x = f a; f = a -> b
-
--- reference
-
-class Functor f where
-    -- fmap "поднимает" функцию `a -> b` в "контекст" `f`: принимает значение `f a`, на выходе значение `f b`
-    fmap :: (a -> b) -> f a -> f b -- видно, что эф это конструктор типов, ибо "применяется" к а и к бе
--- переменная `f` используется как функция над типами, у нее должен быть "стрелочный кайнд": `* -> *`
--- <$> synonim for fmap, infixl 4 <$>
-
-class Monad m where
-    return :: a -> m a -- pure
-    (>>=) :: m a -> (a -> m b) -> m b --  bind
-
--- как с помощью return получить стрелку Клейсли
-toKleisli :: (Monad m) => (a -> b) -> (a -> m b) -- на входе просто стрелка, на выходе уже Клейсли
-toKleisli f = return . f -- результат работы a -> b заворачиваем в ретурн: композиция двух функций
-toKleisli f = (\ x -> return (f x)) -- вот так это записывается в развернутом виде
--- альтернативная запись: можно убрать правые скобки в сигнатуре (это эквивалентно, каррирование бесплатно)
-toKleisli :: (Monad m) => (a -> b) -> a -> m b -- функция двух аргументов, возвращает монаду-бе
-toKleisli f x = return (f x)
--- pointfree
-toKleisli :: (Monad m) => (a -> b) -> a -> m b
-toKleisli = (return .)
 ```
 test
 
@@ -1066,31 +914,6 @@ data Log a = Log [String] a
 
 -- solution
 
--- первый закон (левый pure): не выполняется, ретурн добавляет строку в эффект, которой нет в правой части уравнения
-(return a) >>= k    =    k a
-(Log ["Log start"] 2) >>= (\ x -> Log ["some msg"] x + 40)
-    ->
-    Log ["Log start", "some msg"] 42
-== (нет)
-(\ x -> Log ["some msg"] x + 40) 2
-    -> Log ["some msg"] 42
-
--- второй закон (правый pure): не выполняется, левая часть добавляет строку в эффект, которой нет в правой части
-m >>= return        =    m
-
--- третий закон, ассоциативность: выполняется, тут нет ретурна "только слева" или "только справа"
-(m >>= k) >>= k'    =   m >>= (\ x -> k x >>= k')
-
--- reference
-
-data Log a = Log [String] a
-
--- первый закон (левый pure)
-(return a) >>= k    =    k a
--- второй закон (правый pure)
-m >>= return        =    m
--- третий закон, ассоциативность bind (скобки опциональны, и без них корректно)
-(m >>= k) >>= k'    =   m >>= (\ x -> k x >>= k')
 ```
 test
 
@@ -1110,26 +933,6 @@ test
 
 -- solution
 
--- первый и второй законы: выполняются, ибо куда не добавляй пустую строку, разницы нет.
-
--- третий закон, ассоциативность: выполняется, ибо правая часть эффекта дописывается к левой части (в конец),
--- что не меняет эффекта при смене ассоциативности (а значение по любому считается слева-направо)
-(m >>= k) >>= k' -- ("1" >>= "2") >>= "3" ~> [1, 2] >>= 3 ~> [1,2,3]
-===
-m >>= (\ x -> k x >>= k') -- "1" >>= (\ x -> "2" >>= "3") ~> [1,2,3]
-
--- reference
-
--- bind: добавлять сообщения не в конец результирующего списка, а в начало
-
-data Log a = Log [String] a
-
--- первый закон (левый pure)
-(return a) >>= k    =    k a
--- второй закон (правый pure)
-m >>= return        =    m
--- третий закон, ассоциативность bind (скобки опциональны, и без них корректно)
-(m >>= k) >>= k'    =   m >>= (\ x -> k x >>= k')
 ```
 test
 
@@ -1147,35 +950,6 @@ test
 
 -- solution
 
--- первый закон: не выполняется, бинд слева добавит список-к два раза
-(return a) >>= k    =    k a -- "" >>= "1" === "1" ~> 11 === 1
-
--- второй закон (правый pure): выполняется, добавление пустого списка два раза (слева) не меняет эффекта
-m >>= return        =    m
-
--- третий закон, ассоциативность: не выполняется, лямбда откладывает выполение (накопление) эффекта в первом бинд правой части
--- конкатенация списков перестает быть ассоциативной
-(m >>= k) >>= k' -- ("1" >>= "2") >>= "3" ~> 212 >>= 3 ~> 32123
-===
-m >>= (\ x -> k x >>= k') -- "1" >>= (\ x -> "2" >>= "3") ~> 1 ++ (2 ++ 3) ~> 1 ++ 323 ~> 3231323
-
--- reference
-
--- bind: добавлять сообщения как в начало списка, так и в конец (конкатенация списков)
--- предположим, это значит, что бинд добавляет свою строку к логу два раза: в начало И в конец
-
-data Log a = Log [String] a
-
-bindLog :: Log a -> (a -> Log b) -> Log b
-bindLog (Log lstA a) f = Log (lstA ++ lstB) b where
-    Log lstB b = f a
-
--- первый закон (левый pure)
-(return a) >>= k    =    k a
--- второй закон (правый pure)
-m >>= return        =    m
--- третий закон, ассоциативность bind (скобки опциональны, и без них корректно)
-(m >>= k) >>= k'    =   m >>= (\ x -> k x >>= k')
 ```
 test
 
@@ -1492,52 +1266,6 @@ tokenize input = undefined
 
 -- solution
 
-data Token = Number Int | Plus | Minus | LeftBrace | RightBrace
-    deriving (Eq, Show)
--- Тип Token уже объявлен, его писать не нужно
-
-import Text.Read (readMaybe)
-asToken :: String -> Maybe Token
-asToken "+" = Just Plus
-asToken "-" = Just Minus
-asToken "(" = Just LeftBrace
-asToken ")" = Just RightBrace
-asToken x = readMaybe x >>= (Just . Number) 
--- asToken x = if all Data.Char.isDigit x then Just $ Number (read x) else Nothing
--- readMaybe :: Read a => String -> Maybe a        -- Defined in ‘Text.Read’
-
-tokenize :: String -> Maybe [Token]
-tokenize str = sequence listMaybeTokens where
-    wordList = words str
-    listMaybeTokens = map asToken wordList
--- sequence :: Monad m => [m a] -> m [a] -- Defined in ‘Data.Traversable’
-
--- alternative
-
-import qualified Text.Read as T
-asToken :: String -> Maybe Token
-asToken str = case str of
-    "+" -> Just Plus
-    "-" -> Just Minus
-    "(" -> Just LeftBrace
-    ")" -> Just RightBrace
-    _   -> fmap Number $ T.readMaybe str
-tokenize :: String -> Maybe [Token]
-tokenize = mapM asToken . words
-
-asToken :: String -> Maybe Token
-asToken s
-    | all isDigit s = Just $ Number $ read s
-    | otherwise = lookup s tokForStr
-    where tokForStr = [("+", Plus), ("-", Minus), ("(", LeftBrace), (")", RightBrace)]
-tokenize :: String -> Maybe [Token]
-tokenize = tokWrds . words
-    where
-        tokWrds [] = return []
-        tokWrds (wrd:wrds) = do
-            tok <- asToken wrd
-            toks <- tokWrds wrds
-            return (tok:toks)
 ```
 test
 
@@ -1633,15 +1361,6 @@ nextPositionsN b n pred = do undefined
 
 -- solution
 
-nextPositionsN :: Board -> Int -> (Board -> Bool) -> [Board]
-nextPositionsN b n pred
-    | n < 0 = []
-    | n == 0 = [b | pred b] -- терминальное условие рекурсии, эти значения пойдут в результат
-    | otherwise = do
-        board <- nextPositions b -- first loop
-        nextPositionsN board (n - 1) pred -- inner loop, рекурсия
-
--- Задание сформулировано под предполагаемое решение, это подстава.
 ```
 test
 
@@ -1713,27 +1432,6 @@ pythagoreanTriple x = do undefined
 -- solution
 -- задачка на предыдущую тему "if then else внутри цепочки монад.вычислений"
 
-pythagoreanTriple :: Int -> [(Int, Int, Int)]
-pythagoreanTriple x = do
-    c <- allC
-    b <- allB
-    a <- allA
-    [42 | x > 0 && allConditionsTrue a b c]
-    return (a, b, c) where
-        allA = [1 .. x] -- условия на относительные размеры abc можно сделать по месту
-        allB = [1 .. x]
-        allC = [1 .. x]
-        allConditionsTrue a b c = a < b && b < c && (a^2 + b^2) == c^2
-
--- alternative
-
-pythagoreanTriple :: Int -> [(Int, Int, Int)]
-pythagoreanTriple x = do 
-    c <- [1 .. x]
-    b <- [1 .. c]
-    a <- [1 .. b]
-    if c^2 == a^2 + b^2 then [42] else []
-    return (a, b, c)
 ```
 test
 
@@ -1827,24 +1525,6 @@ main' = ?
 
 -- solution
 
-main' :: IO ()
-main' = do
-    putStrLn "What is your name?"
-    putStr "Name: "
-    name <- getLine
-    if null name then main' else putStrLn $ "Hi, " ++ name ++ "!"
-
--- alternative
-
-main' = do
-  name <- getName  
-  putStrLn $ "Hi, " ++ name ++ "!"
-
-getName :: IO String
-getName = do
-  putStr "What is your name?\nName: "
-  name <- getLine
-  if name == "" then getName else return name
 ```
 test
 
@@ -2160,43 +1840,6 @@ main' = ?
 
 -- solution
 
-main' :: IO ()
-main' = do
-    putStr "Substring: "
-    substr <- getLine
-    if null substr then putStrLn "Canceled" else removeFiles substr
-
-removeFiles substr = do
-    names <- getFiles
-    mapM_ (removeMatchingFile substr) names
-
-getFiles =
-    -- return ["thesis.txt", "kitten.jpg", "hello.world", "linux_in_nutshell.pdf"]
-    getDirectoryContents "."
-
-removeMatchingFile substr fileName = do
-    if fileName `contains` substr then doRemoveFile else skipRemoval where
-        skipRemoval = return ()
-        doRemoveFile = do
-            putStrLn $ "Removing file: " ++ fileName
-            -- return () 
-            removeFile fileName
-
-contains fileName substr = substr `L.isInfixOf` fileName
-
--- alternative
-
-import Data.List
-main' :: IO ()
-main' = do
-  putStr "Substring: "
-  substr <- getLine
-  if substr == ""
-    then putStrLn "Canceled"
-    else do
-      files <- getDirectoryContents "."
-      let files' = filter (isInfixOf substr) files
-      mapM_ (\x -> putStrLn ("Removing file: " ++ x) >> removeFile x) files'
 ```
 test
 
@@ -2288,10 +1931,7 @@ return 2 >>= (+) >>= (*) $ 4
 --}
 
 -- solution
-24
--- почему?
-Монадическая цепочка вычислений на монаде-стрелке (ридер), где environment протаскивается в каждое вычисление, см. реализацию bind.
-т.е. тут `4` это environment: `(2 + 4) * 4`
+
 ```
 test
 
@@ -2306,33 +1946,7 @@ test
 --}
 
 -- solution
-Оператор `>>` aka `then` aka `sequence` выполняет и протаскивает эффекты но игнорирует результат левого вычисления.
-У монады "ридер" эффект это "environment", который протаскивается во все вычисления.
 
-ghci> (2+) >> (3*) $ 4
-12
--- `2+4` выполняется (из-за лени: нет), но игнорируется, `3*4` выполняется и возвращается
-
-Бесполезен: да, все вычисления кроме последнего игнорируются.
-Позволяет передать ... композиций: формально да, позволяет и передает. Но что такое "цепочка композиций"?
-Позволяет изменить ...: нет, такого нет вовсе.
-Позволяет вычислить произвольную ...: формально нет, только `e -> a, e -> b`.
-
-instance Monad ((->) e) where
-    return :: a -> (e -> a) -- pure, уже подставили сигнатуру типа монады
-    return x = \ _ -> x -- тривиальная упаковка значения в стрелку, первый параметр нас тут не интересует
-
-    (>>=) :: m a -> (a -> m b) -> m b -- bind, каноническая сигнатура
-    (>>=) :: (e -> a) -> (a -> e -> b) -> (e -> b) -- после подстановки сигнатуры монады
-    -- реализация вытекает из сигнатуры: в монаду-слева скармливается енв,
-    -- к полученному значению применяется стрелка Клейсли. с доп. параметром енв.
-    m (>>=) k =
-        \ e -> k (m e) e -- m :: e -> a; k :: a -> e -> b
-    -- m, k, e: три параметра в bind
-
-    (>>) :: m a -> m b -> m b -- operator "then" or "sequence"
-    (>>) :: (e -> a) -> (e -> b) -> (e -> b)
-    mx >> my = mx >>= (\ _ -> my) -- связываем два монадических вычисления, второе-пустышка
 ```
 test
 
@@ -2488,16 +2102,7 @@ Select one option from the list
 --}
 
 -- solution (чтобы новое окружение потенциально имело другой тип)
--- возьмем реализацию и подставим на выходе трансформера енва тип `e`
-local :: (r -> r) -> Reader r a -> Reader r a
-local f mr = Reader (\env -> runReader mr (f env))
--- f :: r -> e
--- mr :: Reader e a
--- Reader (\env -> ...) :: Readed r a
--- получается
-local :: (r -> e) -> Reader e a -> Reader r a
-(r -> e) -> (e -> a) -> (r -> a)
--- флипнутая композиция
+
 ```
 test
 
@@ -2515,12 +2120,7 @@ local' :: (r -> r') -> Reader r' a -> Reader r a
 local' f m = ?
 
 -- solution
-local' :: (r -> r') -> Reader r' a -> Reader r a
-local' f m = Reader (\ env -> runReader m (f env))
 
--- alternative
-local' :: (r -> r') -> Reader r' a -> Reader r a
-local' f m = Reader $ (runReader m) . f
 ```
 test
 
@@ -2544,30 +2144,6 @@ usersWithBadPasswords = ?
 
 -- solution
 
-usersWithBadPasswords :: Reader UsersTable [User]
-usersWithBadPasswords = asks (map fst . selected) where
-    selected = filter (\ (_, pwd) -> pwd == "123456")
-
--- alternative
-
-usersWithBadPasswords :: Reader UsersTable [User]
-usersWithBadPasswords =
-    asks (\ table -> do
-        (user, "123456") <- table
-        return user)
-
-usersWithBadPasswords :: Reader UsersTable [User]
-usersWithBadPasswords = asks (usersWithPassword "123456") where
-    usersWithPassword = (map fst .) . filter . (. snd) . (==)
-
-usersWithBadPasswords :: Reader UsersTable [User]
-usersWithBadPasswords = do
-  e <- ask
-  return [ fst x | x <- e, snd x == "123456"]
-
-usersWithBadPasswords :: Reader UsersTable [User]
-usersWithBadPasswords = let badPassword = "123456" in
-    local (filter (\(u, p) -> p == badPassword)) (Reader $ map fst)
 ```
 test
 
@@ -2662,13 +2238,6 @@ evalWriter = ?
 
 -- solution
 
-evalWriter :: Writer w a -> a
-evalWriter = fst . runWriter
-
--- reference
-
-execWriter :: Writer w a -> w
-execWriter m = snd (runWriter m)
 ```
 test
 
@@ -2692,14 +2261,6 @@ test
 
 -- solution
 
-- (да) В качестве типа лога можно использовать произвольную группу
-- Тип результата вычисления и тип лога не могут совпадать
-- (да) Тип результата вычисления и тип лога могут как совпадать, так и не совпадать
-- В качестве типа лога можно использовать произвольный тип
-- Тип результата вычисления и тип лога должны совпадать
-- (да) В качестве типа результата вычисления можно использовать произвольный тип 
-
-Лог это моноид, значение любое.
 ```
 test
 
@@ -2777,19 +2338,6 @@ total = ?
 
 -- solution
 
-import Data.Monoid
-import Control.Monad
-import Control.Monad.Writer ( Writer, writer, runWriter, tell )
-type Shopping = Writer (Sum Integer) () -- двух-параметрический конструктор: моноид-суммы, юнит
--- по факту, весь шоппинг это накапливание суммы в виде эффекта, значение нас не интересует
-
-purchase :: String -> Integer -> Shopping
-purchase item cost = do
-    tell $ Sum cost
-
-total :: Shopping -> Integer
-total = getSum . snd . runWriter -- можно было использовать exec
-
 ```
 test
 
@@ -2826,30 +2374,6 @@ items = ?
 
 -- solution
 
-type Shopping = Writer (Sum Integer, [String]) ()
-
-purchase :: String -> Integer -> Shopping
-purchase item cost = do
-    tell (Sum cost, [item])
-
-total :: Shopping -> Integer
-total = getSum . fst . execWriter
-
-items :: Shopping -> [String]
-items = snd . execWriter
-
--- alternative
-
-type Shopping = Writer [(String, Integer)] ()
-
-purchase :: String -> Integer -> Shopping
-purchase v i = tell $ return (v, i)
-
-total :: Shopping -> Integer
-total = sum . map snd . execWriter
-
-items :: Shopping -> [String]
-items = map fst . execWriter
 ```
 test
 
@@ -2911,16 +2435,6 @@ repl
 
 -- solution
 
-- Монада State является частным случаем монады Writer
-- Монада State является частным случаем монады Reader
-- (да) Монада Writer является частным случаем монады State 
-
-Если спросить "можно ли реализовать reader/writer через state" и наоборот, то ...
-да, можно. Наоборот? Нет, нельзя
-
-newtype State s a  = State  { runState :: s -> (a, s) }
-newtype Reader r a = Reader { runReader :: (r -> a) }
-newtype Writer w a = Writer { runWriter :: (a, w) }
 ```
 test
 
@@ -2935,12 +2449,6 @@ Select one option from the list
 
 -- solution
 
-- (да) Монада State реализована в одном из пакетов Haskell Platform
-- Монада State встроена в компилятор GHC, поскольку позволяет осуществлять вычисления с изменяемым состоянием, что невозможно в «чистом» Хаскеле 
-
-Смысл этого вопроса, вероятно, в том, что речь идет о "мутабельном" стейте а язык чисто функциональный, без мутабельности.
-Ответ очевиден, если подумать (или посмотреть) о цепочке монадических вычислений в этой монаде.
-Там нет мутаций, там есть создание нового стейта (или пробрасывание старого).
 ```
 test
 
@@ -3004,20 +2512,6 @@ readerToState m = ?
 
 -- solution
 
--- смотрим на сигнатуры
--- newtype State s a  = State  { runState :: s -> (a, s) }
--- newtype Reader r a = Reader { runReader :: (r -> a) }
--- видим, что нам нужно стрелку ридера превратить в похожую стрелку, но на выходе пара (a, r)
-
--- import Control.Monad.State ( ap, liftM, State, runState, evalState, execState, get, put, modify, state )
-readerToState :: Reader r a -> State r a
-readerToState rm = state valStatePair where
-    valStatePair givenState = (runReader rm givenState, givenState)
-
--- alternative
-
-readerToState :: Reader r a -> State r a
-readerToState m = State $ \st -> (runReader m st, st)
 ```
 test
 
@@ -3041,20 +2535,6 @@ writerToState m = ?
 
 -- solution
 
--- моноид w напоминает, что лог надо накапливать, поэтому mappend
--- newtype State s a  = State  { runState :: s -> (a, s) }
--- newtype Writer w a = Writer { runWriter :: (a, w) }
--- import Control.Monad.Writer ( Writer, writer, runWriter, execWriter, tell )
-
-writerToState :: Monoid w => Writer w a -> State w a
-writerToState wa = state valStatePair where
-    valStatePair givenState = (a, givenState `mappend` w)
-    (a, w) = runWriter wa -- значение и лог из данного врайтера
-
--- alternative
-
-writerToState :: Monoid w => Writer w a -> State w a
-writerToState m = State $ \s -> let (v, l) = runWriter m in (v, s `mappend` l)
 ```
 test
 
@@ -3154,31 +2634,6 @@ execStateN n m = ?
 
 -- solution
 
--- newtype State s a  = State  { runState :: s -> (a, s) }
-fibStep :: State (Integer, Integer) () -- type state value -- runState (value, state)
-fibStep = do
-    (n1, n2) <- get
-    put (n2, n1 + n2)
-    return ()
-
-execStateN :: Int -> State s a -> s -> s
-execStateN n ms = execState (replicateM n ms)
-
--- alternative
-
-fibStep :: State (Integer, Integer) ()
-fibStep = modify $ \(a,b) -> (b, a + b)
-
-execStateN :: Int -> State s a -> s -> s
-execStateN n m = execState $ replicateM_ n m
-
-fibStep :: State (Integer, Integer) ()
-fibStep = do
-    start <- get
-    put (snd start, uncurry (+) start)
-
-execStateN :: Int -> State s a -> s -> s
-execStateN n m = execState $ replicateM_ n m
 ```
 test
 
@@ -3203,49 +2658,5 @@ numberTree tree = ?
 
 -- solution
 
-numberTree :: Tree () -> Tree Integer -- replace values `()` with ordering numbers
-numberTree t = evalState (numberTreeS t) 1
--- обойдем дерево с протаскиванием стейта
-numberTreeS :: Tree () -> State Integer (Tree Integer) -- state value
--- Tree is a sum type, pat.mat. for 2 cases
-numberTreeS (Leaf _) = do
-    n <- get
-    put (n + 1)
-    return (Leaf n) -- set current number
-numberTreeS (Fork left _ right) = do
-    lt <- numberTreeS left -- in-order: left, node, right
-    n <- get
-    put (n + 1)
-    rt <- numberTreeS right
-    return $ Fork lt n rt -- construct current node
-
--- alternative
-
-numberTree :: Tree () -> Tree Integer
-numberTree tree = evalState (number tree) 1
-  where
-    number :: Tree () -> State Integer (Tree Integer)
-    number (Leaf ()) = get >>= \i -> modify (+1) >> return (Leaf i)
-    number (Fork l () r) = do
-      la <- number l
-      i <- get
-      modify (+1)
-      ra <- number r
-      return $ Fork la i ra
-
--- решение через Traversable
-
-import Control.Applicative
-import Data.Traversable
-import Data.Foldable
-instance Functor Tree where
-  fmap = fmapDefault
-instance Foldable Tree where
-  foldMap = foldMapDefault
-instance Traversable Tree where
-  traverse g (Leaf x) = Leaf <$> g x
-  traverse g (Fork l x r) = Fork <$> traverse g l <*> g x <*> traverse g r
-numberTree :: Tree () -> Tree Integer
-numberTree tree = evalState (traverse (const $ modify succ >> get) tree) 0
 ```
 test

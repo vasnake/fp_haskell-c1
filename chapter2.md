@@ -84,16 +84,10 @@ GHCi> getSecondFrom True 'x' "Hello"
 GHCi> getSecondFrom 'x' 42 True 
 42
 
-getSecondFrom :: a -> b -> c -> b
-getSecondFrom a b c = b
-
 -- Сколько разных всегда завершающихся функций с типом `a -> a -> b -> a -> a` можно реализовать?
 -- Две функции одинаковой арности считаются разными,
 -- если существует набор значений их аргументов, на котором они дают разные результирующие значения.
-3
--- почему? Функция 4 аргументов, три из них а. Возвращает а.
--- Сколько вариантов вернуть а? 3
--- речь про типы, конкретные значения могут быть и одинаковые.
+
 ```
 test
 
@@ -222,11 +216,6 @@ h = undefined
 GHCi> multSecond ('A',2) ('E',7)
 14
 
--- pointless style
-import Data.Function
-multSecond = g `on` h
-g = (*)
-h = snd
 ```
 test
 
@@ -298,8 +287,6 @@ GHCi> let sum3squares = (\x y z -> x+y+z) `on3` (^2)
 GHCi> sum3squares 1 2 3
 14
 
-on3 :: (b -> b -> b -> c) -> (a -> b) -> a -> a -> a -> c
-on3 op f x y z = op (f x)( f y) (f z)
 ```
 test
 
@@ -365,9 +352,7 @@ doItYourself = f . g . h
 doItYourself 42 -- 16.176952268336283
 
 doItYourself = f . g . h
-h = max 42 -- 1) наибольшее из переданного ей аргумента и числа `42`
-g = (^ 3) -- 2) затем возводит результат выбора в куб
-f = logBase 2 -- 3) вычисляет логарифм по основанию `2` от полученного числа `logBase 2 x`
+
 ```
 test
 
@@ -433,23 +418,6 @@ repl
 a -> (a, b) -> a -> (b, a, a)
 -- можно реализовать?
 
-{--
-три стрелочки = три аргумента:
-- значение типа а
-- пара типов (а, б)
-- значение типа а
-возвращает пару типов (б, а, а)
-
-на входе три а и один б,
-с б проблем нет, он один.
-из 3 а можно выбрать x разных пар а:
-Две позиции, три варианта для каждой позиции: 3 * 3 (8 бит это 2^8, не так ли?)
---}
-9
-
--- > 'a' в каждом из 3-ех аргументов и в 2-ух местах результата. 'b' в одном аргументе - тут вариантов нет. Итого 3 в степени 2 равно 9
--- > 3 умножил на 3(три аргумента и 3 разных решений)
--- > используем формулу размещений с повторениями: A2/3 = 3^2
 ```
 test
 
@@ -616,10 +584,7 @@ repl
 -- На нехватку какого представителя какого класса типов пожалуется интерпретатор при попытке вывести тип выражения
 True + False * False
 -- Запишите ответ в виде Имя_класса_типов Имя_типа. Постарайтесь ответить, не используя GHCi.
-Num Bool
 
-<interactive>:27:6: error:
-     • No instance for (Num Bool) arising from a use of ‘+’
 ```
 test
 
@@ -663,7 +628,7 @@ repl
 -- сортирующей переданный в нее список.
 sort :: ? => [d] -> [d]
 -- Напишите выражение, которое должно стоять на месте знака вопроса.
-(Ord d)
+
 ```
 test
 
@@ -716,11 +681,7 @@ GHCi> toString ()
 
 class Printable a where
     toString :: a -> String
-instance Printable Bool where
-    toString True = "true"
-    toString _ = "false"
-instance Printable () where  
-    toString _ = "unit type"
+
 ```
 test [test-printable](./chapter-2.3/test-printable.hs)
 
@@ -749,8 +710,6 @@ GHCi> toString (True,False)
 "(true,false)"
 -- Объявление класса типов Printable и представителей этого класса для типов () и  Bool заново реализовывать не надо
 
-instance (Printable a, Printable b) => Printable (a, b) where
-    toString (a, b) = '(' : toString a ++ ',' : toString b ++ ")"
 ```
 test [test-printable](./chapter-2.3/test-printable.hs)
 
@@ -806,14 +765,7 @@ class KnownToMork a where
 
 class (KnownToGork a, KnownToMork a) => KnownToGorkAndMork a where
     stompOrStab :: a -> a
-    stompOrStab x
-        | eg && em = stomp $ stab x
-        | eg = stab x
-        | em = stomp x
-        | otherwise = x
-     where
-       eg = (doesEnrageGork x)
-       em = (doesEnrageMork x)
+
 ```
 test
 
@@ -866,10 +818,6 @@ ip = show a ++ show b ++ show c ++ show d
 GHCi> ip
 "127.224.120.12"
 
-a = 127.2
-b = 24.1
-c = 20.1
-d = 2
 ```
 test
 
@@ -943,15 +891,6 @@ True
 GHCi> ssucc True
 False
 
-class (Enum a, Bounded a, Eq a) => SafeEnum a where
-  ssucc :: a -> a 
-  ssucc x
-    | x == maxBound = minBound
-    | otherwise = succ x
-  spred :: a -> a
-  spred x
-    | x == minBound = maxBound
-    | otherwise = pred x
 ```
 test [safe_enum](./chapter-2.4/test-safe_enum.hs)
 
@@ -1069,8 +1008,6 @@ avg :: Int -> Int -> Int -> Double
 GHCi> avg 3 4 8
 5.0
 
-avg :: Int -> Int -> Int -> Double
-avg a b c = (/ 3) . sum . map fromIntegral $ [a,b,c]
 ```
 test
 
@@ -1136,7 +1073,7 @@ max 42 -- нет, только один параметр
 (const) $ (const (4 + 5) $ max 42) -- да
 
 -- ответ
-3
+
 ```
 test
 
@@ -1195,7 +1132,6 @@ foo (3 * 10) (5 - 2)
 ~> (3 * 10) + (3 * 10)
 ~> (30) + (30) -- тут подставили thunk
 ~> 60
--- ответ: 4
 
 ```
 test
@@ -1616,7 +1552,7 @@ module Baz where
 import Bar -- a (from Foo), d (from Bar)
 
 -- Отметьте функции, доступные для использования (в Baz?)
-a (from Foo), d (from Bar)
+
 ```
 test
 

@@ -635,7 +635,7 @@ GHCi> twoDigits2Int '4' '2'
 # test.hs
 import Data.Char
 twoDigits2Int :: Char -> Char -> Int
-twoDigits2Int x y = if isDigit x && isDigit y then digitToInt x * 10 + digitToInt y else 100
+
 ```
 test
 
@@ -692,7 +692,7 @@ repl
 # dist p1 p2 = ???
 
 dist :: (Double, Double) -> (Double, Double) -> Double
-dist p1 p2 = sqrt ((fst p2 - fst p1) ^ 2 + (snd p2 - snd p1) ^ 2)
+
 ```
 test
 
@@ -842,7 +842,6 @@ ghci> 8*6*4*2
 doubleFact :: Integer -> Integer
 doubleFact 1 = 1
 doubleFact 2 = 2
-doubleFact n = n * doubleFact (n - 2)
 
 ghci> :reload Demo
 ghci> doubleFact 8
@@ -939,12 +938,6 @@ f(−3) = f(−3+2) − f(−3+1)
 # Измените определение функции fibonacci так, чтобы она была определена для всех целых чисел и 
 # порождала при отрицательных аргументах указанную последовательность.
 fibonacci :: Integer -> Integer
-fibonacci (-2)          = (-1)
-fibonacci (-1)          = 1
-fibonacci 0             = 0
-fibonacci 1             = 1
-fibonacci n | n > 0     = fibonacci (n - 1) + fibonacci (n - 2)
-            | otherwise = fibonacci (n + 2) - fibonacci (n + 1)
 
 ```
 test [chapter-1.5\fibonacci](./chapter-1.5/fibonacci.hs)
@@ -975,19 +968,6 @@ ghci> fibonacci 30
 # имеющую линейную сложность (по числу рекурсивных вызовов).
 
 fibonacci :: Integer -> Integer
-fibonacci (-2)          = (-1)
-fibonacci (-1)          = 1
-fibonacci 0             = 0
-fibonacci 1             = 1
-fibonacci n | n > 0     = fibonacci (n - 1) + fibonacci (n - 2)
-            | otherwise = fibonacci (n + 2) - fibonacci (n + 1)
-
-fibonacci :: Integer -> Integer
-fibonacci n = fib 0 1 n # fib(0), fib(1), n
-fib :: Integer -> Integer -> Integer -> Integer
-fib a b n | n == 0  = a
-          | n > 0   = fib b (a + b) (n - 1)
-          | n < 0   = fib (b - a) a (n + 1)
 
 ghci> fibonacci' 30
 832040
@@ -1126,17 +1106,7 @@ next:
 --}
 
 seqA :: Integer -> Integer
-seqA n
-    | n < 0 = error "arg must be >= 0"
-    | otherwise = let
-        loop :: Integer -> Integer -> Integer -> Integer -> Integer
-        loop 0 a0 a1 a2 = a0
-        loop 1 a0 a1 a2 = a1
-        loop 2 a0 a1 a2 = a2
-        loop i a0 a1 a2 = let
-                a3 = a2 + a1 - 2 * a0
-            in loop (i - 1) a1 a2 a3
-        in loop n 1 2 3 -- term-check, a0, a1, a2
+
 ```
 test [test-seq_a](./chapter-1.6/test-seq_a.hs)
 
@@ -1187,10 +1157,6 @@ GHCi> sum'n'count (-39)
 --}
 
 sum'n'count :: Integer -> (Integer, Integer)
-sum'n'count x = helper (abs x) 0 0 where -- x, sum, count
-    helper :: Integer -> Integer -> Integer -> (Integer, Integer)
-    helper x sum count  | x < 10     = (sum + x, count + 1)
-                        | otherwise  = helper (div x 10) (sum + mod x 10 ) (count + 1)
 
 ```
 test [test-sum_n_count](./chapter-1.6/test-sum_n_count.hs)
@@ -1208,12 +1174,6 @@ accumulator += dx * (f(x) + f(x + dx)) / 2
 --}
 
 integration :: (Double -> Double) -> Double -> Double -> Double
-integration fn a b = helper a 0 steps
-    where
-      steps = 1000
-      dx = (b - a) / steps
-      helper _ acc 0 = dx * acc
-      helper x acc steps = helper (x + dx) (acc + (fn x + fn (x + dx)) / 2) (steps - 1)
 
 ```
 test [test-integrations](./chapter-1.6/test-integration.hs)
